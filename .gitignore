@@ -1,0 +1,15 @@
+node_modules
+test/results/
+
+# Internal design history, kept on disk and out of the published plugin
+docs/build-ledger.md
+docs/superpowers/
+
+# Session state (cs session manager)
+.cs/
+CLAUDE.local.md
+
+# OS and editor files
+.DS_Store
+*.swp
+*~

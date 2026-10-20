@@ -1,0 +1,24 @@
+{
+  "name": "claude-errands",
+  "version": "2026.10.2",
+  "description": "Hand a written brief to a live Codex session, get woken when its turn ends, and see how it ended.",
+  "author": {
+    "name": "hex",
+    "url": "https://github.com/hex"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/hex/claude-errands",
+  "repository": "https://github.com/hex/claude-errands",
+  "icon": "./assets/icon.png",
+  "types": "./types/index.d.ts",
+  "keywords": [
+    "codex",
+    "delegation",
+    "brief",
+    "handoff",
+    "worktree",
+    "multi-agent",
+    "background",
+    "mod"
+  ]
+}

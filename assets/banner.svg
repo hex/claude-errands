@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="100%" role="img" aria-label="A terminal split in two: in Claude Code on the left, the Work with Codex button submits a draft, Claude shows a split plan and asks the person with AskUserQuestion before writing and sending the brief; Codex on the right creates the job's worktree beside the repository, edits, tests, commits and ends with RESULT: done; Claude then wakes to the outcome, one commit and nothing outside the allow-list">
+<title>claude-errands</title>
+<defs>
+<filter id="drop" x="-6%" y="-14%" width="112%" height="140%">
+<feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1c1c1e" flood-opacity="0.22"/>
+</filter>
+<clipPath id="window"><rect x="16" y="12" width="1168" height="736" rx="16"/></clipPath>
+</defs>
+<g filter="url(#drop)"><rect x="16" y="12" width="1168" height="736" rx="16" fill="#141416"/></g>
+<g clip-path="url(#window)">
+<rect x="16" y="12" width="1168" height="40" fill="#0a0a0b"/>
+<line x1="16" y1="52" x2="1184" y2="52" stroke="#26262a"/>
+<line x1="600" y1="52" x2="600" y2="748" stroke="#26262a"/>
+<circle cx="40" cy="32" r="6" fill="#ff5f57"/>
+<circle cx="60" cy="32" r="6" fill="#febc2e"/>
+<circle cx="80" cy="32" r="6" fill="#28c840"/>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+<text x="308" y="38"><tspan fill="#d97757">✻</tspan><tspan fill="#e5e5ea"> Claude Code</tspan></text>
+<text x="892" y="38"><tspan fill="#10A37F">&gt;_</tspan><tspan fill="#e5e5ea"> Codex</tspan></text>
+</g>
+<g font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="15">
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.1067;0.1167;0.7600;0.7700;1.0000"/>
+<text x="36" y="82" xml:space="preserve"><tspan fill="#8e8e93">❯ </tspan><tspan fill="#e5e5ea">ps and lsof can hang on a loaded machine</tspan></text>
+<text x="36" y="104" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#8e8e93">Plan how we split this task with the Codex sessions open h…</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.1533;0.1633;0.3533;0.3633;1.0000"/>
+<text x="36" y="148" xml:space="preserve"><tspan fill="#e5e5ea">⏺ </tspan><tspan fill="#e5e5ea">Codex adds ps/lsof timeouts and tests.</tspan></text>
+<text x="36" y="170" xml:space="preserve"><tspan fill="#e5e5ea">  I keep the review.</tspan></text>
+<text x="36" y="192" xml:space="preserve"><tspan fill="#e5e5ea">  One job in job/timeouts.</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.2000;0.2100;0.3533;0.3633;1.0000"/>
+<text x="36" y="236" xml:space="preserve"><tspan fill="#8e8e93">←  ☐ Split plan  →</tspan></text>
+<text x="36" y="258" xml:space="preserve"><tspan fill="#e5e5ea">Send this job to Codex?</tspan></text>
+<text x="36" y="280" xml:space="preserve"><tspan fill="#e5e5ea">❯ 1. Send as planned</tspan></text>
+<text x="36" y="302" xml:space="preserve"><tspan fill="#e5e5ea">  2. Change the split</tspan></text>
+<text x="36" y="324" xml:space="preserve"><tspan fill="#e5e5ea">  3. Do it all here</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.2867;0.2967;0.3533;0.3633;1.0000"/>
+<text x="36" y="280" xml:space="preserve"><tspan fill="#8ec07c" font-weight="700">❯ 1. Send as planned</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.3533;0.3633;0.7600;0.7700;1.0000"/>
+<text x="36" y="148" xml:space="preserve"><tspan fill="#8ec07c">⏺ </tspan><tspan fill="#e5e5ea" font-weight="700">Write</tspan><tspan fill="#e5e5ea">(briefs/timeouts.md)</tspan></text>
+<text x="36" y="170" xml:space="preserve"><tspan fill="#8e8e93">  ⎿  </tspan><tspan fill="#8e8e93">Wrote 24 lines to briefs/timeouts.md</tspan></text>
+<text x="36" y="192" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93"># Job: Time out ps and lsof after 5 s</tspan></text>
+<text x="36" y="214" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93"></tspan></text>
+<text x="36" y="236" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">## Worktree</tspan></text>
+<text x="36" y="258" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">~/work/probe/worktrees/timeouts</tspan></text>
+<text x="36" y="280" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">Branch: job/timeouts</tspan></text>
+<text x="36" y="302" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">Repo: ~/work/probe/repo</tspan></text>
+<text x="36" y="324" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">Base: 4b1d9e2</tspan></text>
+<text x="36" y="346" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#8e8e93">… +17 lines (ctrl+o to expand)</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.4000;0.4100;0.7600;0.7700;1.0000"/>
+<text x="36" y="390" xml:space="preserve"><tspan fill="#8ec07c">⏺ </tspan><tspan fill="#e5e5ea" font-weight="700">Bash</tspan><tspan fill="#e5e5ea">(node …/src/cli.ts send briefs/timeouts.md)</tspan></text>
+<text x="36" y="412" xml:space="preserve"><tspan fill="#8e8e93">  ⎿  </tspan><tspan fill="#8e8e93">errand-3f9c2a71-8d4e-4b6a-9e15-7c0d2b84a6f3</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.4333;0.4433;0.7600;0.7700;1.0000"/>
+<text x="36" y="456" xml:space="preserve"><tspan fill="#8ec07c">⏺ </tspan><tspan fill="#e5e5ea" font-weight="700">Bash</tspan><tspan fill="#e5e5ea">(node …/src/cli.ts wait</tspan></text>
+<text x="36" y="478" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#e5e5ea">errand-3f9c2a71-8d4e-4b6a-9e15-7c0d2b84a6f3)</tspan></text>
+<text x="36" y="500" xml:space="preserve"><tspan fill="#8e8e93">  ⎿  </tspan><tspan fill="#8e8e93">Running in the background</tspan></text>
+<text x="36" y="544" xml:space="preserve"><tspan fill="#e5e5ea">⏺ </tspan><tspan fill="#e5e5ea">Sent. The wait wakes me when Codex's turn ends.</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.7700;0.7800;0.9733;0.9833;1.0000"/>
+<text x="36" y="82" xml:space="preserve"><tspan fill="#8ec07c">⏺ </tspan><tspan fill="#e5e5ea" font-weight="700">Bash</tspan><tspan fill="#e5e5ea">(node …/src/cli.ts wait</tspan></text>
+<text x="36" y="104" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#e5e5ea">errand-3f9c2a71-8d4e-4b6a-9e15-7c0d2b84a6f3)</tspan></text>
+<text x="36" y="126" xml:space="preserve"><tspan fill="#8e8e93">  ⎿  </tspan><tspan fill="#e5e5ea">Job: errand-3f9c2a71-8d4e-4b6a-9e15-7c0d2b84a6f3</tspan></text>
+<text x="36" y="148" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Outcome: done</tspan></text>
+<text x="36" y="170" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Final answer:</tspan></text>
+<text x="36" y="192" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">ps and lsof time out after 5 s; npm test passes.</tspan></text>
+<text x="36" y="214" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">RESULT: done</tspan></text>
+<text x="36" y="236" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Commits:</tspan></text>
+<text x="36" y="258" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">  9c41e07 Time out ps and lsof after 5 s</tspan></text>
+<text x="36" y="280" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Outside allow-list:</tspan></text>
+<text x="36" y="302" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">  none</tspan></text>
+<text x="36" y="324" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Modified before this job:</tspan></text>
+<text x="36" y="346" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">  none</tspan></text>
+<text x="36" y="368" xml:space="preserve"><tspan fill="#8e8e93">     </tspan><tspan fill="#e5e5ea">Uncommitted changes: no</tspan></text>
+<text x="36" y="412" xml:space="preserve"><tspan fill="#e5e5ea">⏺ </tspan><tspan fill="#e5e5ea">Codex is done: one commit, nothing outside the list.</tspan></text>
+</g>
+<text x="584" y="646" text-anchor="end" xml:space="preserve"><tspan fill="#10A37F" font-weight="700">Codex</tspan><tspan fill="#e5e5ea"> session in this folder: </tspan><tspan fill="#e5e5ea">01a1b2c3</tspan><tspan fill="#8e8e93"> (.)</tspan><tspan fill="#e5e5ea">  </tspan><tspan fill="#10A37F">↗ Work with Codex</tspan></text>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.0733;0.0833;0.1067;0.1167;1.0000"/>
+<rect x="424.5" y="630" width="165.5" height="22" rx="4" fill="#10A37F"/>
+<text x="584" y="646" text-anchor="end" xml:space="preserve"><tspan fill="#04140f" font-weight="700">↗ Work with Codex</tspan></text>
+</g>
+<g stroke="#8e8e93" opacity="0.5"><line x1="28" y1="664" x2="588" y2="664"/><line x1="28" y1="702" x2="588" y2="702"/></g>
+<text x="36" y="689" xml:space="preserve"><tspan fill="#8e8e93">❯ </tspan></text>
+<g opacity="1"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="1;1;0;0;1;1" keyTimes="0.0000;0.1067;0.1167;0.9833;0.9933;1.0000"/>
+<text x="54.06" y="689" xml:space="preserve"><tspan fill="#e5e5ea">ps and lsof can hang on a loaded machine</tspan></text>
+<rect x="416.3" y="674" width="9.0" height="20" fill="#e5e5ea" opacity="0.7"/>
+</g>
+<text x="36" y="724" xml:space="preserve"><tspan fill="#8e8e93">  ⏵⏵ accept edits on</tspan></text>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.4333;0.4433;0.7600;0.7700;1.0000"/>
+<text x="216.6" y="724" xml:space="preserve"><tspan fill="#8e8e93"> · 1 background task</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.0267;0.0367;0.1200;0.1300;1.0000"/>
+<path d="M0,0 L0,19 L4.6,14.6 L7.6,21.2 L10.6,19.9 L7.7,13.4 L13.7,13Z" transform="translate(544.0,647)" fill="#1c1c1e" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/>
+</g>
+<rect x="612" y="64" width="261.9" height="60" rx="6" fill="none" stroke="#26262a" stroke-width="1.5"/>
+<text x="620" y="88" xml:space="preserve"><tspan fill="#8e8e93">&gt;_ </tspan><tspan fill="#e5e5ea" font-weight="700">OpenAI Codex</tspan><tspan fill="#8e8e93"> (v0.163.0)</tspan></text>
+<text x="620" y="112" xml:space="preserve"><tspan fill="#8e8e93">directory: </tspan><tspan fill="#e5e5ea">~/work/probe</tspan></text>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.4533;0.4633;0.9733;0.9833;1.0000"/>
+<rect x="601" y="138" width="583" height="94" fill="#202024"/>
+<text x="620" y="154" xml:space="preserve"><tspan fill="#8e8e93">› </tspan><tspan fill="#e5e5ea">First create the job's worktree: git -C ~/work/probe/repo …</tspan></text>
+<text x="620" y="176" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#e5e5ea">Read ~/.local/state/claude-errands/jobs/errand-3f9c2a71-8d…</tspan></text>
+<text x="620" y="198" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#e5e5ea">Work only in ~/work/probe/worktrees/timeouts; run every co…</tspan></text>
+<text x="620" y="220" xml:space="preserve"><tspan fill="#8e8e93">  </tspan><tspan fill="#e5e5ea">…</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.5067;0.5167;0.9733;0.9833;1.0000"/>
+<text x="620" y="264" xml:space="preserve"><tspan fill="#10A37F">• </tspan><tspan fill="#e5e5ea" font-weight="700">Ran </tspan><tspan fill="#e5e5ea">git -C ~/work/probe/repo worktree add -b job/timeouts</tspan></text>
+<text x="620" y="286" xml:space="preserve"><tspan fill="#8e8e93">  │ </tspan><tspan fill="#e5e5ea">~/work/probe/worktrees/timeouts 4b1d9e2</tspan></text>
+<text x="620" y="308" xml:space="preserve"><tspan fill="#8e8e93">  └ </tspan><tspan fill="#8e8e93">Preparing worktree (new branch 'job/timeouts')</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.5600;0.5700;0.9733;0.9833;1.0000"/>
+<text x="620" y="330" xml:space="preserve"><tspan fill="#10A37F">• </tspan><tspan fill="#e5e5ea" font-weight="700">Edited </tspan><tspan fill="#e5e5ea">worktrees/timeouts/src/probe.ts </tspan><tspan fill="#8e8e93">(</tspan><tspan fill="#7ccf8a">+2</tspan><tspan fill="#8e8e93"> </tspan><tspan fill="#f0857a">-2</tspan><tspan fill="#8e8e93">)</tspan></text>
+<text x="620" y="352" xml:space="preserve"><tspan fill="#8e8e93">    </tspan><tspan fill="#8e8e93">18 -</tspan><tspan fill="#f0857a">  execFile('ps', args, done)</tspan></text>
+<text x="620" y="374" xml:space="preserve"><tspan fill="#8e8e93">    </tspan><tspan fill="#8e8e93">18 +</tspan><tspan fill="#7ccf8a">  execFile('ps', args, { timeout: 5000 }, done)</tspan></text>
+<text x="620" y="396" xml:space="preserve"><tspan fill="#8e8e93">    </tspan><tspan fill="#8e8e93">24 -</tspan><tspan fill="#f0857a">  execFile('lsof', args, done)</tspan></text>
+<text x="620" y="418" xml:space="preserve"><tspan fill="#8e8e93">    </tspan><tspan fill="#8e8e93">24 +</tspan><tspan fill="#7ccf8a">  execFile('lsof', args, { timeout: 5000 }, done)</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.6133;0.6233;0.9733;0.9833;1.0000"/>
+<text x="620" y="440" xml:space="preserve"><tspan fill="#10A37F">• </tspan><tspan fill="#e5e5ea" font-weight="700">Ran </tspan><tspan fill="#e5e5ea">(cd worktrees/timeouts &amp;&amp; npm test)</tspan></text>
+<text x="620" y="462" xml:space="preserve"><tspan fill="#8e8e93">  └ </tspan><tspan fill="#8e8e93">38 passed</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.6600;0.6700;0.9733;0.9833;1.0000"/>
+<text x="620" y="484" xml:space="preserve"><tspan fill="#10A37F">• </tspan><tspan fill="#e5e5ea" font-weight="700">Ran </tspan><tspan fill="#e5e5ea">git -C worktrees/timeouts commit -am</tspan></text>
+<text x="620" y="506" xml:space="preserve"><tspan fill="#8e8e93">  │ </tspan><tspan fill="#e5e5ea">&quot;Time out ps and lsof after 5 s&quot;</tspan></text>
+<text x="620" y="528" xml:space="preserve"><tspan fill="#8e8e93">  └ </tspan><tspan fill="#8e8e93">[job/timeouts 9c41e07] Time out ps and lsof after 5 s</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.7067;0.7167;0.9733;0.9833;1.0000"/>
+<text x="620" y="572" xml:space="preserve"><tspan fill="#8e8e93">─ Worked for 1m 12s </tspan></text>
+<line x1="800.6" y1="567" x2="1172" y2="567" stroke="#8e8e93" opacity="0.5"/>
+<text x="620" y="594" xml:space="preserve"><tspan fill="#e5e5ea">• </tspan><tspan fill="#e5e5ea">ps and lsof time out after 5 s; npm test passes.</tspan></text>
+<text x="620" y="616" xml:space="preserve"><tspan fill="#e5e5ea" font-weight="700">  RESULT: done</tspan></text>
+</g>
+<g opacity="0"><animate attributeName="opacity" dur="15s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0.0000;0.4733;0.4833;0.7067;0.7167;1.0000"/>
+<text x="620" y="664" xml:space="preserve"><tspan fill="#10A37F">• </tspan><tspan fill="#e5e5ea" font-weight="700">Working </tspan><tspan fill="#8e8e93">(1m 12s • esc to interrupt)</tspan></text>
+</g>
+<rect x="601" y="678" width="583" height="34" fill="#202024"/>
+<text x="620" y="700" xml:space="preserve"><tspan fill="#e5e5ea">› </tspan><tspan fill="#8e8e93">Ask Codex to do anything</tspan></text>
+<text x="620" y="734" xml:space="preserve"><tspan fill="#8e8e93">  ? for shortcuts</tspan></text>
+</g>
+</g>
+</svg>
