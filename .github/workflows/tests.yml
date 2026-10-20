@@ -1,0 +1,30 @@
+# ABOUTME: Runs the unit tests and the type check on macOS, the only platform claude-errands supports.
+# ABOUTME: The e2e, protocol and mod checks need a logged-in Codex or Claude Code, so they run locally only.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+    # The cap turns a hung run into a failure, not a six-hour job.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The program runs .ts files directly, which needs Node 25 or newer.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 25
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run check

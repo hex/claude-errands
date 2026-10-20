@@ -1,0 +1,17 @@
+{
+  "name": "claude-errands",
+  "version": "2026.10.2",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "imports": { "#ws": { "types": "./types/ws-vendored.d.ts", "default": "./vendor/ws/wrapper.mjs" } },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "check": "tsc --noEmit",
+    "protocol": "node test/protocol.e2e.ts",
+    "e2e": "node test/e2e.ts",
+    "mod": "bash scripts/check-mod.sh"
+  },
+  "dependencies": { "ws": "8.22.0" },
+  "devDependencies": { "@types/node": "26.6.3", "@types/ws": "8.18.2", "typescript": "7.0.2" }
+}
