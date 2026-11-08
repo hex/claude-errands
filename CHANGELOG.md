@@ -4,6 +4,11 @@ This file lists the notable changes to claude-errands. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 `YYYY.M.BUILD` versions, where `BUILD` starts again at 1 each month.
 
+## 2026.11.4
+
+### Docs
+- The README has a Privacy section: what stays on your machine and for how long, what goes to OpenAI through your Codex account, and that the plugin has no telemetry. `plugin.json` links it through `privacyPolicyUrl`.
+
 ## 2026.11.3
 
 ### Docs
