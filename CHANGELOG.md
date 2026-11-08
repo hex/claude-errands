@@ -4,6 +4,11 @@ This file lists the notable changes to claude-errands. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 `YYYY.M.BUILD` versions, where `BUILD` starts again at 1 each month.
 
+## 2026.11.5
+
+### Docs
+- The README's Privacy section, which 2026.11.4 linked through `privacyPolicyUrl` but left out, is now in the README.
+
 ## 2026.11.4
 
 ### Docs

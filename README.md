@@ -111,6 +111,12 @@ Show the person each brief, then send it in the same turn without asking again: 
 - `needs approval`: answer the approval in the Codex pane.
 - A change to the plugin does not take effect: run `/reload-plugins` in Claude Code.
 
+## Privacy
+
+- Job records and a copy of each brief stay on your machine under `${XDG_STATE_HOME:-~/.local/state}/claude-errands/`. They stay until you delete them; claude-errands removes only released worktree locks.
+- A brief and the code Codex reads go to OpenAI through your own Codex account, as with any Codex turn.
+- The plugin contacts no network service itself. It has no telemetry or analytics, and sends nothing to its author.
+
 ## Support
 
 Report issues at [GitHub Issues](https://github.com/hex/claude-errands/issues) or email [support@hexul.com](mailto:support@hexul.com). Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
