@@ -48,10 +48,9 @@ export const register: Register = on => {
 
     const segments = lineSegments(state.sessions)
     const now = await $.clock.now()
-    // The terminal and the desktop, the only surfaces that raise SessionMode, both draw a Client; `in` narrows the table's type.
-    const Client = 'Client' in elements ? elements.Client : undefined
-    const line = Client !== undefined && segments.some(segment => segment.kind !== 'text')
-      ? <Client key="sessions" module="./sessions.tsx" props={{ segments, now }} />
+    // The terminal and the desktop, the only surfaces that raise SessionMode, both draw a Client.
+    const line = segments.some(segment => segment.kind !== 'text')
+      ? h('Client', { key: 'sessions', module: './sessions.tsx', props: { segments, now } })
       : drawLine(Text, segments, null, now)
 
     return (

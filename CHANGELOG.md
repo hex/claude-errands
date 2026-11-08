@@ -4,6 +4,14 @@ This file lists the notable changes to claude-errands. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 `YYYY.M.BUILD` versions, where `BUILD` starts again at 1 each month.
 
+## 2026.11.2
+
+### Other
+- The footer's animated line now uses a plain `Client` element and the mod's tests live in `mod-test/`, so the plugin passes the Claude directory's checks. Nothing changes in how the plugin works.
+
+### Docs
+- The README says which programs the plugin runs and why, what its prompt hooks add, what the **↗ Work with Codex** button's prompt carries, and which environment variables it reads.
+
 ## 2026.11.1
 
 ### Features

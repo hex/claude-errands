@@ -84,8 +84,11 @@ The outcome is `done`, `question` or `declined` when Codex says so on the last l
 - It keeps its job records, a copy of each brief, the thread each Claude session sends to, and worktree locks under `${XDG_STATE_HOME:-~/.local/state}/claude-errands/`.
 - It writes nothing into your repositories. Codex makes the changes, in the worktree the brief names.
 - The plugin contacts no network service itself. It talks to the Codex daemon over its local socket. The brief and the code Codex reads then go to OpenAI through your Codex account, as with any Codex turn.
-- In every Claude Code session that loads it, it runs `node`, `ps` and `lsof` every 5 to 60 seconds to look for Codex sessions in that folder.
-- When Codex sessions open or close, Claude Code adds a plain text note beside your next message with each thread id and folder.
+- It runs `node` to list nearby Codex sessions, `ps` to find the managed Codex daemon, and `lsof` to find its local socket. Checks run every 5 to 60 seconds in every Claude Code session that loads the plugin.
+- Its `prompt.submit` hook adds a plain text note beside your next message when the set of open Codex sessions changes.
+- Its `skill.prompt` hook supplies the text of `/claude-errands:work-with-codex`. The button submits a planning prompt with your draft and each open session's thread id and folder.
+- It raises a native notification when a Codex session starts waiting for approval. If no notification goes out, it shows a toast.
+- It reads `CODEX_HOME` to find the daemon, `XDG_STATE_HOME` for its state directory, and `CLAUDE_CODE_SESSION_ID` to remember the target for your Claude session. None is a credential.
 - The plugin tells Claude to ask you before it hands implementation work to Codex, and to show you every brief before it sends one.
 - It never sends a job twice and never stops a Codex turn. `abandon` only frees the worktree for another job.
 

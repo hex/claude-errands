@@ -26,6 +26,7 @@ plugin="$work/plugin"
 mkdir -p "$plugin/.claude-plugin"
 cp "$root/.claude-plugin/plugin.json" "$plugin/.claude-plugin/"
 cp -R "$root/hooks" "$root/commands" "$root/types" "$plugin/"
+cp "$root/mod-test/register.test.tsx" "$plugin/hooks/register.test.tsx"
 
 echo "== claude plugin validate"
 validate_status=0

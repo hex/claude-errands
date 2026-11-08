@@ -1,6 +1,6 @@
 {
   "name": "claude-errands",
-  "version": "2026.11.1",
+  "version": "2026.11.2",
   "description": "Hand a written brief to a live Codex session, get woken when its turn ends, and see how it ended.",
   "author": {
     "name": "hex",
