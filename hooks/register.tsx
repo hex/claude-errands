@@ -1,5 +1,5 @@
 // ABOUTME: Polls `cli.ts nearby` for live Codex sessions working in or below this session's directory,
-// ABOUTME: shows them in the band above the prompt and asks Claude to plan how to split the work with them.
+// ABOUTME: shows them at the right of the prompt footer, notifies when one waits for approval, and asks Claude to plan the split.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
@@ -12,59 +12,61 @@ const told = atom({ plugin: 'claude-errands', key: 'codexTold' } as const, null)
 const SEARCH_MS = 15_000
 // A session once found leaves the list only when Codex unloads its thread, minutes after it closes, so a faster check gains nothing.
 const FOUND_MS = 60_000
-// While a session is busy the band's status and elapsed time follow its turn closely.
+// While a session is busy the footer's status and elapsed time follow its turn closely.
 const BUSY_MS = 5_000
 const RUN_TIMEOUT_MS = 20_000
 // Characters that end a line or draw nothing: controls (C0, DEL, C1), format characters, U+2028 and U+2029.
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu
 const LABEL_MAX = 40
 const REASON_MAX = 200
+// With `Codex check failed: ` ahead of it, the failed line alone is at most 80 characters, one row of an 80-column terminal.
+const FOOTER_REASON_MAX = 60
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    // The session's own folder, not the shell's current one: a `cd` into a subfolder must not hide Codex sessions here.
-    void watch($, e.cwd)
+    void watch($)
 
     return next(e)
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  // The Codex line and its button at the right end of the prompt footer, after the modes the engine draws there.
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const state = await read($, nearby)
-    if (e.props.hasSurvey || state.kind === 'unpolled' || state.kind === 'none') return next(e)
+    if (state.kind === 'unpolled' || state.kind === 'none') return next(e)
 
-    // The band shares the slot: what other plugins and the engine draw beneath this hook stays, above this row.
-    const beneath = await next(e)
+    const footer = await next(e)
     const elements = $.ui.resolve(e)
     const { Box, Button, Text } = elements
     if (state.kind === 'failed') {
       return (
-        <Box flexDirection="column">
-          {beneath}
-          <Text color="warning">{`claude-errands: Codex check failed: ${displayable(state.reason, REASON_MAX)}`}</Text>
+        <Box flexDirection="row" justifyContent="flex-end" gap={2}>
+          {footer}
+          <Text color="warning">{`Codex check failed: ${displayable(state.reason, FOOTER_REASON_MAX)}`}</Text>
         </Box>
       )
     }
 
     const segments = lineSegments(state.sessions)
     const now = await $.clock.now()
-    // Only the terminal and desktop draw a Client; elsewhere the band shows the time as of its last redraw.
+    // The terminal and the desktop, the only surfaces that raise SessionMode, both draw a Client; `in` narrows the table's type.
     const Client = 'Client' in elements ? elements.Client : undefined
     const line = Client !== undefined && segments.some(segment => segment.kind !== 'text')
       ? <Client key="sessions" module="./sessions.tsx" props={{ segments, now }} />
       : drawLine(Text, segments, null, now)
 
     return (
-      <Box flexDirection="column">
-        {beneath}
-        <Box flexDirection="row" justifyContent="flex-end" gap={2}>
-          {line}
-          <Button key="work-with-codex" label="↗ Work with Codex" onPress={() => workWithCodex($, state.sessions)}>
-            <Text color={OPENAI_GREEN}>↗ Work with Codex</Text>
-          </Button>
-        </Box>
+      <Box flexDirection="row" justifyContent="flex-end" gap={2}>
+        {footer}
+        {line}
+        <Button key="work-with-codex" label="↗ Work with Codex" onPress={() => workWithCodex($, state.sessions)}>
+          <Text color={OPENAI_GREEN}>↗ Work with Codex</Text>
+        </Button>
       </Box>
     )
   })
+
+  // The task skips whyNotSendable, as it reaches Claude as this command's prompt and never as the person's own, so a leading / or ! runs nothing.
+  on('skill.prompt', { skill: 'claude-errands:work-with-codex' }, async ($, e) => ({ text: commandPrompt(await read($, nearby), e.text.trim()) }))
 
   // Claude learns of Codex sessions beside a prompt, and only when they change: a system-prompt section
   // would change the cached prefix of the whole conversation each time a session opened or closed.
@@ -89,9 +91,9 @@ export const register: Register = on => {
   })
 }
 
-async function watch($: EngineInterface, root: string) {
-  const found = await poll($, root)
-  $.clock.after(nextCheckMs(found), () => void watch($, root))
+async function watch($: EngineInterface) {
+  const found = await poll($)
+  $.clock.after(nextCheckMs(found), () => void watch($))
 }
 
 function nextCheckMs(found: CodexNearby): number {
@@ -100,20 +102,50 @@ function nextCheckMs(found: CodexNearby): number {
   return FOUND_MS
 }
 
-async function poll($: EngineInterface, root: string): Promise<CodexNearby> {
-  const listed = await check($, root).catch((error: unknown): Listed => ({ kind: 'failed', reason: withoutPrefix(message(error)) }))
+async function poll($: EngineInterface): Promise<CodexNearby> {
+  const listed = await check($).catch((error: unknown): Listed => ({ kind: 'failed', reason: withoutPrefix(message(error)) }))
   const now = await $.clock.now()
   const after = (previous: CodexNearby): CodexNearby => (listed.kind === 'failed' ? listed : tracked(listed.sessions, previous, now))
-  return update($, nearby, after).catch((error: unknown) => {
-    $.ui.log(`claude-errands: could not record the Codex check: ${message(error)}`)
-    return after({ kind: 'unpolled' })
+  // Compared with the value this write replaces, as update hands it to the change on every try.
+  let waiting: Labelled[] = []
+  const recorded = await update($, nearby, previous => {
+    const found = after(previous)
+    waiting = newlyWaiting(previous, found)
+    return found
+  }).catch((error: unknown) => {
+    $.ui.log(`claude-errands: could not record the Codex check: ${withoutPrefix(message(error))}`)
+    return null
   })
+  if (recorded === null) return after({ kind: 'unpolled' })
+  if (waiting.length > 0) await notifyWaiting($, waiting)
+  return recorded
+}
+
+// The sessions of next that wait for approval and, in previous, were absent or had another status, with the
+// footer's labels. A previous that names no sessions (unpolled, none, failed) has every session absent.
+function newlyWaiting(previous: CodexNearby, next: CodexNearby): Labelled[] {
+  if (next.kind !== 'open') return []
+  const before = new Map((previous.kind === 'open' ? previous.sessions : []).map(session => [session.id, session.status]))
+  return labelled(next.sessions).filter(({ session }) => session.status === 'needsApproval' && before.get(session.id) !== 'needsApproval')
+}
+
+async function notifyWaiting($: EngineInterface, waiting: Labelled[]) {
+  const body = waiting.map(({ session, label }) => `${label} (${displayable(session.relativeCwd, LABEL_MAX)})`).join(', ')
+  const sent = await $.ui.notify(body, { title: 'Codex needs approval' }).catch((error: unknown) => {
+    $.ui.log(`claude-errands: could not notify that Codex needs approval: ${withoutPrefix(message(error))}`)
+    return null
+  })
+  // With notifications off, no terminal to show them, or a notification that failed, the person still learns it in the app.
+  if (sent === null || !sent.isSent) $.ui.toast(`claude-errands: Codex needs approval: ${body}`)
 }
 
 type Listed = { kind: 'listed'; sessions: CodexSession[] } | { kind: 'failed'; reason: string }
 
-async function check($: EngineInterface, root: string): Promise<Listed> {
-  const ran = await $.process.run(['node', `${$.plugin.root}/src/cli.ts`, 'nearby', root], { timeoutMs: RUN_TIMEOUT_MS })
+async function check($: EngineInterface): Promise<Listed> {
+  // The project root, not the shell's directory: a `cd` into a subfolder must not hide Codex sessions here.
+  const root = await $.session.root()
+  // From the plugin's folder, as the engine's default is wherever Claude's shell stands, a directory that may have been removed.
+  const ran = await $.process.run(['node', `${$.plugin.root}/src/cli.ts`, 'nearby', root], { cwd: $.plugin.root, timeoutMs: RUN_TIMEOUT_MS })
   if (ran.exitCode !== 0) {
     const firstLine = ran.stderr.split('\n')[0]?.trim()
     return { kind: 'failed', reason: firstLine ? withoutPrefix(firstLine) : `cli.ts nearby exited ${ran.exitCode} with nothing on stderr` }
@@ -141,8 +173,8 @@ function parseSessions(stdout: string): Listed {
   return { kind: 'listed', sessions }
 }
 
-// The sessions as the band keeps them, sorted by id, each busy one with when its turn began: its
-// turnStartedAt, else when the band first saw it busy, which holds until the band sees it idle.
+// The sessions as the mod keeps them, sorted by id, each busy one with when its turn began: its
+// turnStartedAt, else when a check first saw it busy, which holds until a check sees it idle.
 function tracked(sessions: CodexSession[], previous: CodexNearby, now: number): CodexNearby {
   if (sessions.length === 0) return { kind: 'none' }
   const seen = new Map((previous.kind === 'open' ? previous.sessions : []).flatMap(session => (session.status === 'idle' ? [] : [[session.id, session.busySince] as const])))
@@ -183,9 +215,11 @@ function isIsoTime(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(value) && !Number.isNaN(Date.parse(value))
 }
 
-// Each session with the label the band shows: its name, or its id's start when it has none. Labels that
+type Labelled = { session: NearbySession; label: string }
+
+// Each session with the label the footer shows: its name, or its id's start when it has none. Labels that
 // come out equal get the end of the id, so two sessions never read the same.
-function labelled(sessions: NearbySession[]): { session: NearbySession; label: string }[] {
+function labelled(sessions: NearbySession[]): Labelled[] {
   const based = sessions.map(session => ({
     session,
     base: (session.name === null ? '' : displayable(session.name, LABEL_MAX)) || session.id.slice(0, 8),
@@ -196,11 +230,11 @@ function labelled(sessions: NearbySession[]): { session: NearbySession; label: s
   }))
 }
 
-// The band's sessions text: each session's label and folder, a spinner and the elapsed time for a working one.
+// The footer's Codex line: each session's label, folder and status, a spinner and the elapsed time for a working one.
 function lineSegments(sessions: NearbySession[]): LineSegment[] {
   return [
     textSegment('codex', 'Codex', 'brand'),
-    textSegment('in-folder', ` ${sessions.length === 1 ? 'session' : 'sessions'} in this folder: `),
+    textSegment('codex-gap', ' '),
     ...labelled(sessions).flatMap(({ session, label }, index): LineSegment[] => [
       ...(index === 0 ? [] : [textSegment(`comma-${session.id}`, ', ')]),
       ...(session.status === 'working' ? [{ kind: 'spinner', key: `spinner-${session.id}` } as const] : []),
@@ -214,7 +248,7 @@ function lineSegments(sessions: NearbySession[]): LineSegment[] {
 function statusSegments(session: NearbySession): LineSegment[] {
   switch (session.status) {
     case 'idle':
-      return []
+      return [textSegment(`status-${session.id}`, ' idle', 'dim')]
     case 'working':
       return [textSegment(`status-${session.id}`, ' working '), { kind: 'elapsed', key: `elapsed-${session.id}`, busySince: session.busySince }]
     case 'needsApproval':
@@ -234,24 +268,41 @@ function displayable(text: string, max: number): string {
   return characters.length <= max ? line : `${characters.slice(0, max - 1).join('')}…`
 }
 
-// Starts a turn asking Claude to plan the split across all open Codex sessions and wait for approval.
+// Starts a turn asking Claude to plan the split across all open Codex sessions and wait for approval, the
+// draft in the prompt box as the task, and empties the box once the prompt entered.
 async function workWithCodex($: EngineInterface, sessions: NearbySession[]) {
-  // Quoted, as in the note, so a directory name holding a newline cannot add a line to the person's prompt.
-  const open = sessions.map(session => `${session.id} in ${quoted(session.cwd)}`).join(', ')
-  const plan = 'If the work is too small to split, say so. Otherwise plan the split: what each brief covers and what you keep; what can run at once (one turn per thread, one job per worktree, --target on every send) and what has to wait; the rough size of each part. Show me the plan, then ask me with AskUserQuestion whether to send it as planned, change the split, or do it all here. Send nothing until I answer.'
   const draft = (await $.prompt.read()).text.trim()
   const why = whyNotSendable(draft)
   if (why !== null) {
     $.ui.toast(`claude-errands: Work with Codex left your draft in the box: ${why}.`)
     return
   }
-  if (draft === '') {
-    await $.prompt.submit({ text: `Codex sessions open here: ${open}. If nothing is in progress, say so and ask me with AskUserQuestion what to work on, offering the likely next tasks. ${plan}`, asUser: true })
-    return
-  }
-  const result = await $.prompt.submit({ text: `${draft}\n\nPlan how we split this task with the Codex sessions open here: ${open}. ${plan}`, asUser: true })
+  const result = await $.prompt.submit({ text: planningPrompt(sessions, draft), asUser: true })
   // A refused prompt never entered, so the draft stays; the engine shows the person why.
-  if (result.drop === undefined) await $.prompt.fill({ text: '', mode: 'replace' })
+  if (draft !== '' && result.drop === undefined) await $.prompt.fill({ text: '', mode: 'replace' })
+}
+
+// The prompt asking Claude to plan how the task splits across the open Codex sessions and to wait for
+// approval; with no task, to say whether anything is in progress and ask what to work on.
+function planningPrompt(sessions: NearbySession[], task: string): string {
+  // Quoted, as in the note, so a directory name holding a newline cannot add a line to the person's prompt.
+  const open = sessions.map(session => `${session.id} in ${quoted(session.cwd)}`).join(', ')
+  const plan = 'If the work is too small to split, say so. Otherwise plan the split: what each brief covers and what you keep; what can run at once (one turn per thread, one job per worktree, --target on every send) and what has to wait; the rough size of each part. Show me the plan, then ask me with AskUserQuestion whether to send it as planned, change the split, or do it all here. Send nothing until I answer.'
+  if (task === '') return `Codex sessions open here: ${open}. If nothing is in progress, say so and ask me with AskUserQuestion what to work on, offering the likely next tasks. ${plan}`
+  return `${task}\n\nPlan how we split this task with the Codex sessions open here: ${open}. ${plan}`
+}
+
+function commandPrompt(state: CodexNearby, task: string): string {
+  switch (state.kind) {
+    case 'open':
+      return planningPrompt(state.sessions, task)
+    case 'none':
+      return 'I ran /claude-errands:work-with-codex, but no Codex session is open in this folder. Say so in one line and do nothing else.'
+    case 'unpolled':
+      return 'I ran /claude-errands:work-with-codex before the first Codex check finished. Say so in one line, tell me to run it again in a few seconds, and do nothing else.'
+    case 'failed':
+      return `I ran /claude-errands:work-with-codex, but the Codex check failed: ${quoted(displayable(state.reason, REASON_MAX))}. Say so in one line and do nothing else.`
+  }
 }
 
 // Why a draft cannot go out as a plugin's prompt, or null when it can: such a prompt expands neither pastes
@@ -292,9 +343,10 @@ function promptText(sessions: NearbySession[]): string {
     'Live Codex sessions are open inside your working directory:',
     // Quoted, so a directory name holding a newline stays one line of data, not an instruction.
     ...sessions.map(session => `- thread ${session.id}, cwd ${quoted(session.cwd)}`),
-    'The person keeps these Codex sessions open to split the work with you: you plan, write briefs and review; Codex writes the code.',
-    'Hand implementation work that fits a brief to Codex unless the person says to do it here. Write briefs with the claude-errands:brief skill and send them with the claude-errands:send skill, passing --target <thread id> on every send.',
-    "Show the person each brief before sending it. Never edit a worktree while a Codex job holds it: claude-errands reports every change there as the agent's.",
+    'The person keeps these Codex sessions open to split the work with you. When work goes to Codex, you plan, write briefs and review, and Codex writes the code.',
+    'Before starting implementation work, ask the person once per task with AskUserQuestion whether to hand it to Codex or do it here, with Codex as the first option and naming the session it would go to. Do not ask when the person already said where the work goes, or for questions, reviews and one-line fixes, which you handle here. Any other change to the code counts as implementation work, however small it looks.',
+    'When the person picks Codex, write the brief with the claude-errands:brief skill and send it with the claude-errands:send skill, passing --target <thread id> on every send.',
+    "Show the person each brief, then send it in the same turn without asking again: choosing Codex is the approval. Never edit a worktree while a Codex job holds it: claude-errands reports every change there as the agent's.",
   ].join('\n')
 }
 
@@ -306,7 +358,7 @@ function quoted(text: string): string {
   )
 }
 
-// The band already names the plugin; cli.ts and the engine both lead their messages with it.
+// The plugin's name, which cli.ts and the engine both lead their messages with: each place that shows a reason has its own lead-in.
 function withoutPrefix(reason: string): string {
   return reason.startsWith('claude-errands: ') ? reason.slice('claude-errands: '.length) : reason
 }

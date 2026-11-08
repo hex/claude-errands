@@ -3,7 +3,7 @@
 - `npm test`: unit tests for the brief parser, outcome classification, change report and job store. Real git, no network.
 - `npm run protocol`: checks the daemon facts claude-errands depends on ("Protocol notes" in `docs/ARCHITECTURE.md`).
 - `npm run e2e`: the seven end-to-end scenarios through the real `send`, `wait` and `nearby`. Writes a log under `test/results/`.
-- `npm run mod`: checks the hooks module on a copy holding only `hooks/`, `types/` and the manifest: `claude plugin validate` (any error but the reserved-name one fails the check), `claude plugin test` on `hooks/register.test.tsx`, and `tsc` against the Claude Code API declarations. Claude Code unpacks those declarations under `/private/tmp/claude-<uid>/bundled-skills/<version>/` when a session of that Claude Code version loads the plugin-authoring skill.
+- `npm run mod`: checks the hooks module on a copy holding only `hooks/`, `commands/`, `types/` and the manifest: `claude plugin validate` (any error but the reserved-name one fails the check), `claude plugin test` on `hooks/register.test.tsx`, and `tsc` against the Claude Code API declarations. Claude Code unpacks those declarations under `/private/tmp/claude-<uid>/bundled-skills/<version>/` when a session of that Claude Code version loads the plugin-authoring skill.
 
 The last two start real Codex on an isolated daemon under a temporary Codex home (`e2e` starts two in turn: one in the repository for scenarios 1 to 6, one in a git folder holding the repository, with no extra writable directory, for scenario 7), copy `~/.codex/auth.json` into it (mode 600, directory mode 700), use Codex quota, and stop every process under that home before deleting it. They never touch the live daemon.
 

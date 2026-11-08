@@ -41,7 +41,7 @@ CAP = int((PANE_W - INSET - MARGIN) / CHAR_W)
 TERM_BG, TITLE_BG, EDGE = "#141416", "#0a0a0b", "#26262a"
 FG, DIM = "#e5e5ea", "#8e8e93"
 CLAUDE, LIT = "#d97757", "#8ec07c"
-# OpenAI's green, as the band draws the Codex parts of its line.
+# OpenAI's green, as the footer draws the Codex parts of its line.
 CODEX = "#10A37F"
 ADDED, REMOVED = "#7ccf8a", "#f0857a"
 POINTER_FILL, POINTER_EDGE = "#1c1c1e", "#ffffff"
@@ -175,6 +175,8 @@ APPROVED = 4.3
 WROTE = 5.3
 SENT = 6.0
 WAITING = 6.5
+DELIVERED = 6.8
+WORKTREE_ADDED, EDITED, TESTED, COMMITTED, ENDED = 7.6, 8.4, 9.2, 9.9, 10.6
 SCROLLED = 11.4
 LOOP_END = 14.6
 
@@ -247,17 +249,23 @@ for n, line in enumerate(outcome):
 term(lx, row(15), [(DOT, FG), ("Codex is done: one commit, nothing outside the list.", FG)])
 A('</g>')
 
-# The band above the prompt, as hooks/register.tsx draws it, then the prompt.
-band_right = RIGHT - MARGIN - 4
-box_top = WY + WH - 84
-band_y = box_top - 18
+# The prompt footer places the Codex status and button below the mode row.
+footer_right = RIGHT - MARGIN - 4
+box_top = WY + WH - 84 - LH
+footer_y = box_top + 60 + LH
 BUTTON = "↗ Work with Codex"
-term(band_right, band_y, [("Codex", CODEX, 700), (" session in this folder: ", FG), (THREAD[:8], FG),
-                          (" (.)", DIM), ("  ", FG), (BUTTON, CODEX)], anchor="end")
+group((0, DELIVERED + 0.3), (ENDED, CYCLE))
+term(footer_right, footer_y, [("Codex", CODEX, 700), (f" {THREAD[:8]}", FG),
+                            (" (.) idle", DIM), ("  ", FG), (BUTTON, CODEX)], anchor="end")
+A('</g>')
+group((DELIVERED + 0.3, ENDED))
+term(footer_right, footer_y, [("Codex", CODEX, 700), (" ⠋ ", CODEX), (THREAD[:8], FG),
+                            (" (.)", DIM), (" working 1m12s  ", FG), (BUTTON, CODEX)], anchor="end")
+A('</g>')
 button_w = len(BUTTON) * CHAR_W + 12
 group(PRESS)
-A(f'<rect x="{band_right - button_w + 6:.1f}" y="{band_y - 16}" width="{button_w:.1f}" height="{LH}" rx="4" fill="{CODEX}"/>')
-term(band_right, band_y, [(BUTTON, "#04140f", 700)], anchor="end")
+A(f'<rect x="{footer_right - button_w + 6:.1f}" y="{footer_y - 16}" width="{button_w:.1f}" height="{LH}" rx="4" fill="{CODEX}"/>')
+term(footer_right, footer_y, [(BUTTON, "#04140f", 700)], anchor="end")
 A('</g>')
 
 rule_l, rule_r = LEFT + MARGIN, RIGHT - MARGIN
@@ -278,7 +286,7 @@ A('</g>')
 # The pointer comes to the button and presses it.
 group(POINTER)
 A(f'<path d="M0,0 L0,19 L4.6,14.6 L7.6,21.2 L10.6,19.9 L7.7,13.4 L13.7,13Z" '
-  f'transform="translate({band_right - 40:.1f},{band_y + 1})" fill="{POINTER_FILL}" '
+  f'transform="translate({footer_right - 40:.1f},{footer_y + 1})" fill="{POINTER_FILL}" '
   f'stroke="{POINTER_EDGE}" stroke-width="1.6" stroke-linejoin="round"/>')
 A('</g>')
 
@@ -293,10 +301,6 @@ term(rx, head_top + 24, HEADER)
 term(rx, head_top + 48, [("directory: ", DIM), (SESSION, FG)])
 
 ry = head_top + 60 + 30
-
-DELIVERED = 6.8
-WORKTREE_ADDED, EDITED, TESTED, COMMITTED, ENDED = 7.6, 8.4, 9.2, 9.9, 10.6
-
 
 def rrow(n):
     return ry + n * LH

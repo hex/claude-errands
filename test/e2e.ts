@@ -64,7 +64,7 @@ const inRepository = async (isolated: Isolated): Promise<void> => {
   assert.equal(wrongProject.status, 1)
   assert.equal(wrongProject.stderr, `claude-errands: thread ${isolated.threadId} works in ${isolated.repo}, which neither holds nor is inside the brief's worktree ${elsewhere}; pick a thread with: targets\n`)
 
-  // Claude's band and system prompt learn of a session from nearby: the thread is listed for its own repository only.
+  // The mod's footer line and Claude's hidden note learn of a session from nearby: the thread is listed for its own repository only.
   // Codex titles the thread from the harness's setup turn, some seconds after that turn ends, so only the name's
   // presence is fixed, and nearby is read again until the title is there.
   const listed = await until('Codex to title the thread', 60, () => {
@@ -75,9 +75,17 @@ const inRepository = async (isolated: Isolated): Promise<void> => {
   })
   assert.deepEqual(listed.map(({ id, cwd, relativeCwd }) => ({ id, cwd, relativeCwd })), [{ id: isolated.threadId, cwd: isolated.repo, relativeCwd: '.' }])
   assert.equal(typeof listed[0]?.name, 'string')
+  const quietNear = cli(isolated, 'nearby', isolated.repo, '--quiet')
+  assert.equal(quietNear.status, 0, quietNear.stderr)
+  assert.equal(quietNear.stdout, '')
+  assert.equal(quietNear.stderr, '')
   const notNear = cli(isolated, 'nearby', elsewhere)
   assert.equal(notNear.status, 0, notNear.stderr)
   assert.equal(notNear.stdout, '[]\n')
+  const quietNotNear = cli(isolated, 'nearby', elsewhere, '--quiet')
+  assert.equal(quietNotNear.status, 2, quietNotNear.stderr)
+  assert.equal(quietNotNear.stdout, '')
+  assert.equal(quietNotNear.stderr, '')
 
   const a = token()
   const done = run(isolated, 'done', `Create src/${a}.txt containing ${a}, then commit it with the message "add ${a}".`)

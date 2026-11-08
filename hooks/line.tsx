@@ -1,4 +1,4 @@
-// ABOUTME: Draws the band's sessions text from its segments, for the band's own tree and for the surface
+// ABOUTME: Draws the footer's Codex line from its segments, for the footer's own tree and for the surface
 // ABOUTME: module that animates it: each style's Text props, the spinner's frames and the elapsed time.
 import type { ElementConstructor, RenderElement, TextProps } from 'claude-code'
 

@@ -1,11 +1,11 @@
-// ABOUTME: The band's sessions text while a Codex session works, as a surface module: it turns the spinner
-// ABOUTME: and counts the elapsed time on the surface's frame clock between the band's redraws.
+// ABOUTME: The footer's Codex line while a Codex session works, as a surface module: it turns the spinner
+// ABOUTME: and counts the elapsed time on the surface's frame clock between the footer's redraws.
 import type { ClientModule } from 'claude-code'
 
 import type { SessionsLineProps } from '../types'
 import { FRAME_MS, drawLine } from './line'
 
-// ticks: frames since the instance mounted, which turn the spinner; now and since: the band's clock as of its
+// ticks: frames since the instance mounted, which turn the spinner; now and since: the footer's clock as of its
 // last redraw and the tick it arrived on, which the elapsed time counts on from.
 type Ticking = { ticks: number; now: number; since: number }
 

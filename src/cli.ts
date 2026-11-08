@@ -143,8 +143,8 @@ const positiveNumber = (name: string, text: string): number => {
   return value
 }
 
-// Prints, as JSON, the readable sessions working in dir or below it; none when no Codex daemon runs.
-const nearby = async (dir: string): Promise<void> => {
+// Lists readable sessions working in dir or below it as JSON, or signals their presence with a quiet exit code.
+const nearby = async (dir: string, quiet: boolean): Promise<void> => {
   const root = realpathSync(dir)
   const targets = await transport.targets().catch((error: unknown) => {
     if (error instanceof NoDaemonError) return []
@@ -153,18 +153,19 @@ const nearby = async (dir: string): Promise<void> => {
   const inside = targets.flatMap(target => target.readable && worktreeHolds(root, target.cwd)
     ? [{ id: target.id, name: target.name, cwd: target.cwd, relativeCwd: relative(root, realpathSync(target.cwd)) || '.', status: target.status, turnStartedAt: target.turnStartedAt }]
     : [])
-  console.log(JSON.stringify(inside))
+  if (quiet) process.exitCode = inside.length > 0 ? 0 : 2
+  else console.log(JSON.stringify(inside))
 }
 
-const USAGE = 'usage: cli.ts send <brief> [--target <id>] | wait <jobId> [--interval <seconds>] [--timeout <minutes>] | targets | nearby <dir> | abandon <jobId>'
+const USAGE = 'usage: cli.ts send <brief> [--target <id>] | wait <jobId> [--interval <seconds>] [--timeout <minutes>] | targets | nearby <dir> [--quiet] | abandon <jobId>'
 
 const main = async (): Promise<void> => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { target: { type: 'string' }, interval: { type: 'string', default: '30' }, timeout: { type: 'string', default: '110' } },
+    options: { target: { type: 'string' }, interval: { type: 'string', default: '30' }, timeout: { type: 'string', default: '110' }, quiet: { type: 'boolean' } },
   })
   const [command, argument, ...extra] = positionals
-  if (extra.length > 0) throw new Error(USAGE)
+  if (extra.length > 0 || (values.quiet !== undefined && command !== 'nearby')) throw new Error(USAGE)
   if (command === 'targets' && argument === undefined) {
     for (const target of await transport.targets()) console.log(label(target))
     return
@@ -173,7 +174,7 @@ const main = async (): Promise<void> => {
   if (command === 'send') return send(argument, values.target)
   if (command === 'wait') return wait(argument, positiveNumber('interval', values.interval), positiveNumber('timeout', values.timeout))
   if (command === 'abandon') return abandon(argument)
-  if (command === 'nearby') return nearby(argument)
+  if (command === 'nearby') return nearby(argument, values.quiet === true)
   throw new Error(USAGE)
 }
 

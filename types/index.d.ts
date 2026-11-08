@@ -12,7 +12,7 @@ export type CodexSession = {
   turnStartedAt: string | null
 }
 
-// A session as the band keeps it: a busy one with when its turn began, in ms since the epoch.
+// A session as the mod keeps it: a busy one with when its turn began, in ms since the epoch.
 export type NearbySession = Omit<CodexSession, 'status' | 'turnStartedAt'> &
   ({ status: 'idle' } | { status: 'working' | 'needsApproval'; busySince: number })
 
@@ -22,14 +22,14 @@ export type CodexNearby =
   | { kind: 'open'; sessions: NearbySession[] }
   | { kind: 'failed'; reason: string }
 
-// The band's sessions text as plain data, drawn by the band's own Text or, while a session works, by
-// hooks/sessions.tsx, which animates the spinner and the elapsed time between the band's redraws.
+// The footer's Codex line as plain data, drawn by the footer's own Text or, while a session works, by
+// hooks/sessions.tsx, which animates the spinner and the elapsed time between the footer's redraws.
 export type LineSegment =
   | { kind: 'text'; key: string; text: string; style: 'plain' | 'brand' | 'dim' | 'warning' }
   | { kind: 'spinner'; key: string }
   | { kind: 'elapsed'; key: string; busySince: number }
 
-// now is the band's clock when it drew, in ms since the epoch.
+// now is the footer's clock when it drew, in ms since the epoch.
 export type SessionsLineProps = { segments: LineSegment[]; now: number }
 
 declare module 'claude-code' {

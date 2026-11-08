@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Checks the claude-errands mod (hooks/, types/, the manifest) on a copy of its own:
+# ABOUTME: Checks the claude-errands mod (hooks/, commands/, types/, the manifest) on a copy of its own:
 # ABOUTME: claude plugin validate, claude plugin test, then tsc against this build's API declarations.
 set -euo pipefail
 
@@ -10,10 +10,13 @@ version="$("$claude_bin" --version | cut -d' ' -f1)"
 shopt -s nullglob
 declarations=(/private/tmp/claude-"$(id -u)"/bundled-skills/"$version"/*/plugin-authoring/types/claude-code.d.ts)
 shopt -u nullglob
-if [ "${#declarations[@]}" -ne 1 ]; then
-  echo "check-mod: expected one claude-code.d.ts for Claude Code $version under /private/tmp/claude-$(id -u)/bundled-skills, found ${#declarations[@]}; load the plugin-authoring skill in a session of this version to unpack it" >&2
+if [ "${#declarations[@]}" -eq 0 ]; then
+  echo "check-mod: found no claude-code.d.ts for Claude Code $version under /private/tmp/claude-$(id -u)/bundled-skills; load the plugin-authoring skill in a session of this version to unpack it" >&2
   exit 1
 fi
+# Each process that loads the skill unpacks its own copy, and copies of one version can differ: the file embeds
+# the tool schemas of the session that unpacked it. The paths hold no whitespace, so the list splits on words.
+distinct="$(shasum -a 256 "${declarations[@]}" | sort -u -k1,1 | cut -c67-)"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -22,7 +25,7 @@ trap 'rm -rf "$work"' EXIT
 plugin="$work/plugin"
 mkdir -p "$plugin/.claude-plugin"
 cp "$root/.claude-plugin/plugin.json" "$plugin/.claude-plugin/"
-cp -R "$root/hooks" "$root/types" "$plugin/"
+cp -R "$root/hooks" "$root/commands" "$root/types" "$plugin/"
 
 echo "== claude plugin validate"
 validate_status=0
@@ -53,7 +56,6 @@ echo "== claude plugin test"
 "$claude_bin" plugin test "$plugin"
 
 echo "== tsc"
-cp "${declarations[0]}" "$work/claude-code.d.ts"
 cat >"$work/tsconfig.json" <<'JSON'
 {
   "compilerOptions": {
@@ -66,5 +68,8 @@ cat >"$work/tsconfig.json" <<'JSON'
   "include": ["claude-code.d.ts", "plugin/hooks", "plugin/types"]
 }
 JSON
-"$root/node_modules/.bin/tsc" -p "$work/tsconfig.json"
-echo "tsc: no errors"
+for declaration in $distinct; do
+  cp "$declaration" "$work/claude-code.d.ts"
+  "$root/node_modules/.bin/tsc" -p "$work/tsconfig.json"
+  echo "tsc: no errors against $declaration"
+done
