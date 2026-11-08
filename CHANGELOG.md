@@ -4,6 +4,11 @@ This file lists the notable changes to claude-errands. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 `YYYY.M.BUILD` versions, where `BUILD` starts again at 1 each month.
 
+## 2026.11.3
+
+### Docs
+- `plugin.json` now links the reference docs through `documentationUrl`, so the Claude directory listing shows them.
+
 ## 2026.11.2
 
 ### Other

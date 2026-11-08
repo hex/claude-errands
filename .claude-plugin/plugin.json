@@ -1,6 +1,6 @@
 {
   "name": "claude-errands",
-  "version": "2026.11.2",
+  "version": "2026.11.3",
   "description": "Hand a written brief to a live Codex session, get woken when its turn ends, and see how it ended.",
   "author": {
     "name": "hex",
@@ -9,6 +9,7 @@
   "license": "MIT",
   "homepage": "https://github.com/hex/claude-errands",
   "repository": "https://github.com/hex/claude-errands",
+  "documentationUrl": "https://github.com/hex/claude-errands/blob/main/docs/REFERENCE.md",
   "icon": "./assets/icon.png",
   "types": "./types/index.d.ts",
   "keywords": [
