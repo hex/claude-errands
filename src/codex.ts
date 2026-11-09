@@ -1,17 +1,22 @@
 // ABOUTME: Drives a live Codex thread through the managed daemon: queues a job's text with the job id as the
 // ABOUTME: client message id, and reports the state of the turn that job started.
-import { Daemon, DaemonCallError, discoverDaemon } from './daemon.ts'
-import type { Target, TargetActivity, Transport, TurnState } from './transport.ts'
+import { Daemon, DaemonCallError, discoverDaemon, type RawThread } from './daemon.ts'
+import { TargetClosedError, type Target, type TargetActivity, type Transport, type TurnState } from './transport.ts'
 
 const daemon = async (): Promise<Daemon> => new Daemon((await discoverDaemon()).socket)
+
+// A closed thread still answers thread/read from its rollout and still takes thread/queue/add, into a queue nothing runs until the thread is resumed.
+const isClosed = (thread: RawThread): boolean => thread.status.type === 'notLoaded'
 
 const poll = async (target: string, jobId: string): Promise<TurnState> => {
   const codex = await daemon()
   // Queue before turns: a job only moves from the queue to the turns, so this order cannot miss one that just started.
   const queue = await codex.queueList(target)
   const thread = await codex.readThread(target)
-  if (JSON.stringify(queue).includes(jobId)) return { kind: 'queued' }
   const turn = thread.turns.find(candidate => candidate.items.some(item => item.type === 'userMessage' && item.clientId === jobId))
+  const queued = JSON.stringify(queue).includes(jobId)
+  if (isClosed(thread) && turn === undefined && queued) return { kind: 'closed' }
+  if (queued) return { kind: 'queued' }
   if (turn === undefined) return { kind: 'lost' }
   if (turn.status === 'inProgress') return thread.status.activeFlags.includes('waitingOnApproval') ? { kind: 'waitingOnApproval' } : { kind: 'running' }
   const finalMessage = turn.items.filter(item => item.type === 'agentMessage' && item.phase === 'final_answer').at(-1)?.text ?? null
@@ -41,13 +46,15 @@ export const listTargets = async (codex: Daemon): Promise<Target[]> =>
 export const codexTransport: Transport = {
   async send(target, jobId, text) {
     const codex = await daemon()
-    // Fails for a thread the daemon cannot read, before anything is queued.
-    await codex.readThread(target)
+    // Fails for a thread the daemon cannot read, or one that has closed, before anything is queued.
+    if (isClosed(await codex.readThread(target))) throw new TargetClosedError(target)
     await codex.queueAdd(target, text, jobId)
   },
   poll,
-  async cwd(target) {
-    return (await (await daemon()).readThread(target)).cwd
+  async liveCwd(target) {
+    const thread = await (await daemon()).readThread(target)
+    if (isClosed(thread)) throw new TargetClosedError(target)
+    return thread.cwd
   },
   async targets() {
     return listTargets(await daemon())

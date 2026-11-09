@@ -67,13 +67,13 @@ test('a stored outcome is never replaced', () => {
   const outcome = { kind: 'done' as const, finalMessage: 'RESULT: done', error: null, changes: null, capturedAt: '2026-10-01T00:00:00.000Z' }
   saveJob(job({ id: 'relay-settled', outcome }))
   const later = { ...outcome, kind: 'question' as const, capturedAt: '2026-10-01T00:05:00.000Z' }
-  assert.equal(settleJob('relay-settled', later), false)
+  assert.equal(settleJob('relay-settled', later, 'sent'), false)
   assert.deepEqual(loadJob('relay-settled').outcome, outcome)
 })
 test('the first outcome for an open job is stored', () => {
   saveJob(job({ id: 'relay-open' }))
   const outcome = { kind: 'done' as const, finalMessage: 'RESULT: done', error: null, changes: null, capturedAt: '2026-10-01T00:00:00.000Z' }
-  assert.equal(settleJob('relay-open', outcome), true)
+  assert.equal(settleJob('relay-open', outcome, 'sent'), true)
   assert.deepEqual(loadJob('relay-open').outcome, outcome)
 })
 test('a worktree can be claimed once until its job settles', () => {
@@ -83,7 +83,7 @@ test('a worktree can be claimed once until its job settles', () => {
   assert.equal(claimWorktree(dir, 'relay-first'), undefined)
   saveJob(job({ id: 'relay-second', worktree: dir }))
   assert.equal(claimWorktree(dir, 'relay-second'), 'relay-first')
-  settleJob('relay-first', { kind: 'abandoned', finalMessage: null, error: null, changes: null, capturedAt: '2026-10-01T00:00:00.000Z' })
+  settleJob('relay-first', { kind: 'abandoned', finalMessage: null, error: null, changes: null, capturedAt: '2026-10-01T00:00:00.000Z' }, 'unknown')
   assert.equal(claimWorktree(dir, 'relay-second'), undefined)
 })
 test('a lock whose job record is gone is stale', () => {

@@ -9,10 +9,23 @@ import { codexTransport } from './codex.ts'
 import { NoDaemonError } from './daemon.ts'
 import { claimWorktree, firstStep, loadJob, openJobFor, rememberTarget, rememberedTarget, recordedWorkspace, resolveWorkspace, saveJob, settleJob, stateDir, threadRefusal, worktreeHolds, type Job, type Outcome } from './job.ts'
 import { captureOutcome } from './outcome.ts'
-import type { Target, Transport } from './transport.ts'
+import { TargetClosedError, type Target, type Transport } from './transport.ts'
 
 const transport: Transport = codexTransport
 const LOST_POLLS_BEFORE_FAILING = 3
+// About two minutes at the default 30-second interval: time for a person at the pane to answer before Claude tells them.
+const APPROVAL_POLLS_BEFORE_STOPPING = 5
+const WAITING_ON_APPROVAL_EXIT = 3
+
+// Ends the command with its own exit code, so a caller can tell this stop from a failure, which exits 1.
+class StopError extends Error {
+  readonly exitCode: number
+
+  constructor(message: string, exitCode: number) {
+    super(message)
+    this.exitCode = exitCode
+  }
+}
 
 const messageFor = (job: Job): string => {
   const step = firstStep(job)
@@ -34,11 +47,8 @@ const label = (target: Target): string => target.readable
   : `${target.id}  (unreadable: ${target.reason})`
 
 const chooseTarget = async (given: string | undefined): Promise<string> => {
+  if (given !== undefined) return given
   const sessionId = process.env.CLAUDE_CODE_SESSION_ID
-  if (given !== undefined) {
-    if (sessionId !== undefined) rememberTarget(sessionId, given)
-    return given
-  }
   const remembered = sessionId === undefined ? undefined : rememberedTarget(sessionId)
   if (remembered !== undefined) return remembered
   const listing = (await transport.targets()).map(target => `  ${label(target)}`).join('\n')
@@ -57,7 +67,7 @@ const send = async (briefPath: string, givenTarget: string | undefined): Promise
   const open = openJobFor(worktree)
   if (open !== undefined) throw new Error(`worktree ${worktree} is held by job ${open.id}, which has no outcome yet; wait for it or run: abandon ${open.id}`)
   const target = await chooseTarget(givenTarget)
-  const refusal = threadRefusal(workspace, target, await transport.cwd(target))
+  const refusal = threadRefusal(workspace, target, await transport.liveCwd(target))
   if (refusal !== null) throw new Error(refusal)
   const id = `errand-${randomUUID()}`
   mkdirSync(join(stateDir(), 'jobs'), { recursive: true })
@@ -71,19 +81,25 @@ const send = async (briefPath: string, givenTarget: string | undefined): Promise
   // The record exists before the claim, so a lock whose job has no record is a crashed send, not a live one.
   const holder = claimWorktree(worktree, id)
   if (holder !== undefined) {
-    settleJob(id, { kind: 'abandoned', finalMessage: null, error: `worktree held by ${holder}`, changes: null, capturedAt: new Date().toISOString() })
+    settleJob(id, { kind: 'abandoned', finalMessage: null, error: `worktree held by ${holder}`, changes: null, capturedAt: new Date().toISOString() }, 'refused')
     throw new Error(`worktree ${worktree} is held by job ${holder}, which has no outcome yet; wait for it or run: abandon ${holder}`)
   }
   try {
     await transport.send(target, id, messageFor(job))
   } catch (sendError) {
+    if (sendError instanceof TargetClosedError) {
+      settleJob(id, { kind: 'abandoned', finalMessage: null, error: sendError.message, changes: null, capturedAt: new Date().toISOString() }, 'refused')
+      throw sendError
+    }
     // A failed send does not prove the daemon rejected the job; ask it once whether the job is there.
     const state = await transport.poll(target, id).catch(() => ({ kind: 'lost' as const }))
-    if (state.kind === 'lost') {
+    if (state.kind === 'lost' || state.kind === 'closed') {
       saveJob({ ...loadJob(id), delivery: 'unknown' })
       throw new Error(`delivery of job ${id} is unknown and it was not sent again; check it with: wait ${id}`, { cause: sendError })
     }
   }
+  // Only here: a target refused above must not become the next send's default.
+  if (job.sessionId !== null) rememberTarget(job.sessionId, target)
   saveJob({ ...loadJob(id), delivery: 'sent' })
   console.log(id)
 }
@@ -108,21 +124,27 @@ const wait = async (id: string, intervalSeconds: number, timeoutMinutes: number)
   if (job.outcome !== null) return console.log(render(job, job.outcome))
   const deadline = Date.now() + timeoutMinutes * 60_000
   let lostPolls = 0
+  let approvalPolls = 0
   let approvalAnnounced = false
   for (;;) {
     const state = await transport.poll(job.target, id)
     if (state.kind === 'ended') {
       const outcome = captureOutcome(job, state)
       // Another waiter, or abandon, may have settled the job meanwhile; the stored outcome wins.
-      const stored = settleJob(id, outcome) ? outcome : loadJob(id).outcome
+      const stored = settleJob(id, outcome, 'sent') ? outcome : loadJob(id).outcome
       if (stored === null) throw new Error(`job ${id} has no outcome after settling`)
       return console.log(render(job, stored))
     }
+    if (state.kind === 'closed') throw new Error(`job ${id} has not started and thread ${job.target} has closed; it can run only if that thread is resumed with the job still in its queue. To run it elsewhere: abandon ${id}, then send the brief to a live thread from: targets. Abandon does not remove the queued copy, so the job still runs if that thread is resumed`)
     lostPolls = state.kind === 'lost' ? lostPolls + 1 : 0
     if (lostPolls >= LOST_POLLS_BEFORE_FAILING) throw new Error(`job ${id} is in neither the queue nor the turns of ${job.target} on ${LOST_POLLS_BEFORE_FAILING} polls in a row`)
+    approvalPolls = state.kind === 'waitingOnApproval' ? approvalPolls + 1 : 0
     if (state.kind === 'waitingOnApproval' && !approvalAnnounced) {
       approvalAnnounced = true
       console.log(`Job ${id} is waiting on an approval in the agent's pane.`)
+    }
+    if (approvalPolls >= APPROVAL_POLLS_BEFORE_STOPPING) {
+      throw new StopError(`job ${id} has waited on an approval in thread ${job.target} for ${APPROVAL_POLLS_BEFORE_STOPPING} polls in a row; the person must answer it in that Codex pane. The job is still open, so running wait ${id} again after that is safe`, WAITING_ON_APPROVAL_EXIT)
     }
     if (Date.now() > deadline) return console.log(`Job: ${id}\nstill running`)
     await new Promise(resolvePause => setTimeout(resolvePause, intervalSeconds * 1000))
@@ -131,7 +153,7 @@ const wait = async (id: string, intervalSeconds: number, timeoutMinutes: number)
 
 const abandon = (id: string): void => {
   const job = loadJob(id)
-  if (!settleJob(id, { kind: 'abandoned', finalMessage: null, error: null, changes: null, capturedAt: new Date().toISOString() })) {
+  if (!settleJob(id, { kind: 'abandoned', finalMessage: null, error: null, changes: null, capturedAt: new Date().toISOString() }, 'unknown')) {
     throw new Error(`job ${id} already has outcome ${loadJob(id).outcome?.kind ?? 'none'}`)
   }
   console.log(`Job ${id} abandoned; worktree ${job.worktree} is free. The agent was not stopped.`)
@@ -181,5 +203,5 @@ const main = async (): Promise<void> => {
 main().catch((error: unknown) => {
   const cause = error instanceof Error && error.cause instanceof Error ? `\ncaused by: ${error.cause.message}` : ''
   console.error(`claude-errands: ${error instanceof Error ? error.message : String(error)}${cause}`)
-  process.exit(1)
+  process.exit(error instanceof StopError ? error.exitCode : 1)
 })

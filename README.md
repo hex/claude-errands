@@ -106,9 +106,9 @@ Show the person each brief, then send it in the same turn without asking again: 
 ## Troubleshooting
 
 - No Codex line in the footer: leave a Codex session open in Claude Code's project folder or below it. A new session shows within 15 seconds.
-- A closed session stays listed. Codex unloads its thread after minutes. The line stays until then.
+- A closed session stays listed for about a minute, until Codex unloads its thread. `send` accepts the thread until then too. A job sent to it runs with no pane to answer an approval, and `wait` stops after about two minutes to say so.
 - `Codex check failed: <reason>`: the footer shows the check's error. Make sure `node` is on the `PATH` Claude Code started with. The command `/claude-errands:work-with-codex` gives the reason up to 200 characters.
-- `needs approval`: answer the approval in the Codex pane.
+- `needs approval`: answer the approval in the Codex pane. If nobody answers for about two minutes, `wait` exits 3 so Claude can tell you; the job stays open.
 - A change to the plugin does not take effect: run `/reload-plugins` in Claude Code.
 
 ## Privacy

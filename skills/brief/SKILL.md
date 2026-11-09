@@ -53,6 +53,7 @@ List every path the agent may change, as globs (`src/relay/**`). Keep it disjoin
 - Test first: quote the failing test line in the final message before the fix.
 - Where a finding and the spec disagree, follow the spec and say so.
 - Name the paths that are off limits, even though the allow-list implies them.
+- If the brief limits the agent to the test command, name the lint diagnostics it may also run on its own files. Without that, the agent stops to ask.
 - The final message lists commit ids, the test count, and anything that did not fit.
 
 Do not write the `RESULT:` instruction yourself. claude-errands adds it to every job.

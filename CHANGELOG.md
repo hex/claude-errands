@@ -4,6 +4,19 @@ This file lists the notable changes to claude-errands. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 `YYYY.M.BUILD` versions, where `BUILD` starts again at 1 each month.
 
+## 2026.11.6
+
+### Fixes
+- `send` refuses a Codex thread that has closed (status `notLoaded`) and prints no job id. The daemon would accept the job into a queue nothing runs.
+- `wait` stops with an error when a job sits in the queue of a closed thread, and says what you can do with it. It reports a job that neither a queue nor a turn holds as lost.
+- `wait` exits 3 when an approval stays pending for 5 polls in a row, about two minutes at the default interval. The job stays open, so `wait` can run again once you've answered in the Codex pane.
+- `send` remembers a target only after a thread takes the job, so a thread it refused isn't used for the next send.
+- `abandon` on a record a crashed `send` left at `sending` now records the delivery as `unknown`.
+
+### Docs
+- A closed session's thread stays loaded for about a minute after you quit it (measured on codex 0.167.0, on threads with no turns). `send` still accepts it in that time, and the job runs with nobody at the pane. The README, the reference and the send skill say so now.
+- The brief skill says to name the lint diagnostics an agent may run when a brief limits it to the test command.
+
 ## 2026.11.5
 
 ### Docs

@@ -8,7 +8,7 @@ description: Use when handing a written brief to the user's live Codex session a
 `ERRANDS="node ${CLAUDE_PLUGIN_ROOT}/src/cli.ts"`
 
 1. Write the brief (see the `brief` skill).
-2. Send it. `$ERRANDS targets` lists loaded threads. If the person approved a plan that names a thread for each brief, use that thread. Otherwise ask the person which thread with AskUserQuestion, one option per open session; never pick one yourself. Run `$ERRANDS send <brief.md> --target <thread id>`. Pass `--target` on every send when more than one Codex session is open. The command prints a job id.
+2. Send it. `$ERRANDS targets` lists loaded threads. If the person approved a plan that names a thread for each brief, use that thread. Otherwise ask the person which thread with AskUserQuestion, one option per open session; never pick one yourself. Run `$ERRANDS send <brief.md> --target <thread id>`. Pass `--target` on every send when more than one Codex session is open. The command prints a job id only after the thread's status was not `notLoaded` and the daemon accepted the job, so there is no need to check the thread's rollout file. Codex keeps a closed session's thread loaded and `idle` for about a minute: `send` accepts it, and the job runs with no pane to answer an approval. If the thread unloads in the moment after the check, `wait` reports it at its first poll.
 3. Wait in the background, so the harness wakes you when the turn ends: run `$ERRANDS wait <job id>` with the Bash tool's `run_in_background: true` and `timeout: 7200000`. The Bash tool stops a background command after 30 minutes unless you pass that timeout; two hours is its maximum, and claude-errands' own `--timeout` default of 110 minutes stays under it. Do not poll it.
 4. Act on the outcome it prints.
 
@@ -29,6 +29,11 @@ Other output:
 
 - `still running`: the wait reached its time limit. Run `wait` again.
 - `is waiting on an approval in the agent's pane`: tell the user their Codex pane needs them.
+- `wait` exits 3 with `has waited on an approval`: nobody answered for 5 polls. Tell the user their Codex pane needs them, or that the session may be closed if they no longer have that pane. The job is still open: run `wait <job id>` in the background again once they have answered.
+- `has closed, so nothing would run this brief`: Codex has unloaded that thread (its status is `notLoaded`), and the brief did not reach its queue. Run `$ERRANDS targets` and send to a live thread.
+- `has not started and thread ... has closed`: Codex unloaded the thread after the send, the job is still in its queue, and nothing runs it. Tell the user that resuming that Codex session runs it. To send it elsewhere, run `$ERRANDS abandon <job id>` and send to a live thread; abandon does not remove the queued copy, so resuming that session later still runs it.
+- `is in neither the queue nor the turns`: the thread does not hold the job, so nothing will run it, even if that thread is resumed. Run `$ERRANDS abandon <job id>` and send the brief again.
+- Any other error from `wait`, such as a daemon call that failed: one failed poll ends `wait` with exit 1 and leaves the job as it was. Running `wait <job id>` again is safe.
 - `delivery of job ... is unknown`: do not send again. Run `wait <job id>`; it reports what the daemon shows.
 - `works in ..., which neither holds nor is inside the brief's worktree`: the thread belongs to another project. Run `$ERRANDS targets` and pass the thread whose directory is the brief's worktree, inside it, or a folder that holds it with `--target`.
 - `works in ..., which does not hold the repository`, `the worktree` or `the common git directory`: a brief that creates its worktree needs a thread whose folder holds all three. Pick another thread, or another worktree path inside the thread's folder.

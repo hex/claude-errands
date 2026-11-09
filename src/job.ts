@@ -9,7 +9,8 @@ import type { Workspace } from './brief.ts'
 import { captureBaseline, type Baseline, type ChangeReport } from './changes.ts'
 import type { OutcomeKind } from './outcome.ts'
 
-export type Delivery = 'sending' | 'sent' | 'unknown'
+// refused: send gave up before thread/queue/add was called, so the thread never had the job.
+export type Delivery = 'sending' | 'sent' | 'unknown' | 'refused'
 export type Outcome = { kind: OutcomeKind | 'abandoned'; finalMessage: string | null; error: string | null; changes: ChangeReport | null; capturedAt: string }
 export type Job = {
   id: string; transport: 'codex'; target: string; briefPath: string; briefCopy: string
@@ -138,10 +139,11 @@ export const rememberedTarget = (sessionId: string): string | undefined => {
 }
 
 // A job's outcome is written once. Returns false, and leaves the record alone, when one is already stored.
-export const settleJob = (id: string, outcome: Outcome): boolean => {
+// A job still marked sending takes deliveryIfSending: a turn that ended proves it arrived, a refusal proves it did not, and an abandon proves neither.
+export const settleJob = (id: string, outcome: Outcome, deliveryIfSending: Delivery): boolean => {
   const current = loadJob(id)
   if (current.outcome !== null) return false
-  saveJob({ ...current, delivery: current.delivery === 'sending' ? 'sent' : current.delivery, outcome })
+  saveJob({ ...current, delivery: current.delivery === 'sending' ? deliveryIfSending : current.delivery, outcome })
   return true
 }
 

@@ -12,15 +12,15 @@ claude-errands works with codex-cli 0.159.2, 0.162.1 or 0.163.0 with a Codex ter
 
 | Command | What it does | Exit code |
 |---|---|---|
-| `send <brief.md> [--target <thread id>]` | Validates the brief, copies it, records the job, queues it to the thread. Prints the job id. | 0 with the job id; 1 on a rejected brief, a held worktree, a missing target, or a daemon error |
-| `wait <job id> [--interval <seconds>] [--timeout <minutes>]` | Polls until the job's turn ends, then prints the outcome. Defaults: 30 seconds, 110 minutes. | 0 when it prints an outcome or `still running`; 1 when claude-errands itself fails (no daemon, no job record, job lost) |
+| `send <brief.md> [--target <thread id>]` | Validates the brief, copies it, records the job, queues it to the thread. Prints the job id. | 0 with the job id, once the thread read as live and the daemon accepted the job; 1 on a rejected brief, a held worktree, a missing target, an unloaded target (status `notLoaded`), or a daemon error |
+| `wait <job id> [--interval <seconds>] [--timeout <minutes>]` | Polls until the job's turn ends, then prints the outcome. Defaults: 30 seconds, 110 minutes. | 0 when it prints an outcome or `still running`; 3 when an approval stays pending for 5 polls in a row (the job stays open); 1 when claude-errands itself fails (no daemon, no job record, job lost, job parked on an unloaded thread) |
 | `targets` | Lists the daemon's loaded threads with name, directory and first line of the preview. | 0 |
 | `nearby <dir> [--quiet]` | Prints, as one JSON array, the readable threads whose directory is `<dir>` or inside it: `[{"id", "name", "cwd", "relativeCwd", "status", "turnStartedAt"}]`. `status` is `idle`, `working`, or `needsApproval` (a turn waits on an approval in the Codex pane); `turnStartedAt` is the running turn's start as an ISO 8601 time, `null` when idle. Prints `[]` when no managed Codex daemon runs. With `--quiet`, prints nothing on stdout. | Without `--quiet`: 0 on success, including no sessions. With `--quiet`: 0 when at least one readable session is in `<dir>` or below it; 2 when none is, including when no managed Codex daemon runs. Both modes: 1 on an error, with the message on stderr. |
 | `abandon <job id>` | Marks a job's outcome as `abandoned` so its worktree can take another job. Does not stop the agent. | 0; 1 if the job already has an outcome |
 
 `send` refuses a thread whose working directory neither is the brief's worktree, a directory inside it, nor a folder that holds it, so a brief for one repository cannot land in a session working on another. `targets` shows each thread's directory. A brief that asks for a new worktree has stricter rules; see "A worktree Codex creates" below.
 
-`send` without `--target` uses the thread last given with `--target` in the same Claude session (`CLAUDE_CODE_SESSION_ID`). With no remembered thread it fails and prints the `targets` listing. With `CLAUDE_CODE_SESSION_ID` unset, `--target` is required every time.
+`send` without `--target` uses the thread that last took a job from the same Claude session (`CLAUDE_CODE_SESSION_ID`). A target given with `--target` that `send` refuses is not remembered. A remembered thread that later closes stays remembered, and `send` refuses it until `--target` names a live thread. With no remembered thread it fails and prints the `targets` listing. With `CLAUDE_CODE_SESSION_ID` unset, `--target` is required every time.
 
 A `wait` on a job whose outcome is already recorded prints the recorded outcome and gathers nothing again. An outcome is stored once: a second `wait` that ends later, or one still running after `abandon`, prints the stored outcome.
 
@@ -128,7 +128,7 @@ When an organization manages Claude Code, compaction hooks run only for plugins 
 
 `${XDG_STATE_HOME:-~/.local/state}/claude-errands/`
 
-- `jobs/<job id>.json`: the job record: target, brief paths, whether the worktree existed or the agent creates it (and then the repository), worktree, branch, base commit, content hashes of paths already modified at send time, allow-list, Claude session id, time sent, delivery state (`sending`, `sent`, `unknown`), and the outcome once captured.
+- `jobs/<job id>.json`: the job record: target, brief paths, whether the worktree existed or the agent creates it (and then the repository), worktree, branch, base commit, content hashes of paths already modified at send time, allow-list, Claude session id, time sent, delivery state (`sending`, `sent`, `unknown`, or `refused` for a job that never reached the queue call), and the outcome once captured.
 - `jobs/<job id>.brief.md`: the copy of the brief the agent reads.
 - `targets/<Claude session id>.json`: the remembered thread for that session.
 - `locks/<hash of the worktree path>.json`: which job holds a worktree.
@@ -138,8 +138,10 @@ When an organization manages Claude Code, compaction hooks run only for plugins 
 - `done` is the agent's claim, not proof. Review the work.
 - The outcome is captured up to one polling interval after the turn ends. Edits by anyone else in that window are attributed to the job.
 - One job per worktree at a time. `send` refuses while another job on the same worktree has no outcome.
-- A pending approval in the Codex pane is reported once as a `waiting on an approval` line while `wait` continues.
+- A pending approval in the Codex pane is reported once as a `waiting on an approval` line while `wait` continues. When the approval is still pending on 5 polls in a row (about two minutes at the default interval), `wait` exits 3 and leaves the job open, so running `wait` again after the person answers is safe.
 - claude-errands cannot tell whether another Claude session is using a thread. Choosing the target explicitly once per session is the guard.
 - Two open jobs that create the same new branch at different paths are not caught at send time. The second `git worktree add` fails, and that job ends `no-worktree`.
 - Another process that creates a job's new worktree path and branch between the send and the agent's `git worktree add` is not detected: the worktree passes every check, and that process's commits are reported as the job's. The agent's final answer would say its command failed.
-- A failed `send` does not prove the daemon rejected the job. The record is kept with delivery state `unknown`, the job is never sent twice, and `wait` reports what the daemon shows.
+- `send` refuses a thread whose status is `notLoaded`, with no job id: the daemon would accept the job into a queue nothing runs. It refuses no other status. Closing a Codex session does not unload its thread at once: the thread stays loaded and `idle` for about a minute, `send` accepts it, and the job runs with no pane to answer an approval. A thread that unloads in the milliseconds between that check and the queue call gets a job id, and `wait` then reports it as parked on an unloaded thread at its first poll.
+- The closed-thread behaviour above is measured only on codex-cli 0.167.0, which is outside the versions this page lists as supported.
+- A failed `send` does not prove the daemon rejected the job. The record is kept with delivery state `unknown`, the job is never sent twice, and `wait` reports what the daemon shows. `abandon` on a record a crashed `send` left at `sending` also records `unknown`.

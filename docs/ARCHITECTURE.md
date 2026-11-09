@@ -70,6 +70,7 @@ type TurnState =
   | { kind: 'running' }
   | { kind: 'waitingOnApproval' }
   | { kind: 'lost' }
+  | { kind: 'closed' }
   | { kind: 'ended'; status: 'completed' | 'failed'; finalMessage: string | null; error: string | null }
 
 type Transport = {
@@ -84,11 +85,12 @@ Version 1 has one implementation and no registry, flag, or configuration for cho
 ### Codex transport
 
 - **Daemon discovery.** The Codex home is `$CODEX_HOME` when set, otherwise `~/.codex`. Find the one process under `<Codex home>/packages/app-server-daemon/` started with `--managed-daemon`, then the one `codex-daemon-` unix socket it holds. Zero or several of either is an error naming what was found.
-- **cwd.** `thread/read` for the thread's `cwd`. `send` refuses a thread whose `cwd` is not the brief's worktree or inside it: a brief for one repository must not reach a session working on another.
-- **send.** `thread/read` first, so an unreadable thread fails before anything is queued. Then `thread/queue/add` with the text and `clientUserMessageId` set to the job id.
+- **liveCwd.** `thread/read` for the thread's `cwd`, throwing `TargetClosedError` when the thread's status is `notLoaded`. `send` makes this check before it records a job, and refuses a thread whose `cwd` is not the brief's worktree or inside it: a brief for one repository must not reach a session working on another.
+- **send.** `thread/read` first, so an unreadable or unloaded (`notLoaded`) thread fails before anything is queued. Then `thread/queue/add` with the text and `clientUserMessageId` set to the job id.
 - **poll.** Read `thread/queue/list` first, then `thread/read`. A job only moves from the queue to the turns, so reading in that order cannot miss a job that started between the two calls.
+  - The thread's status is `notLoaded`, no turn has the job and the job is in the queue: `closed`. Nothing runs it unless the thread is resumed.
   - The job is in the queue: `queued`.
-  - Not in the queue, and no turn has a `userMessage.clientId` equal to the job id: `lost`.
+  - Not in the queue, and no turn has a `userMessage.clientId` equal to the job id: `lost`, on a `notLoaded` thread too, since resuming it would not run the job.
   - Turn status `inProgress`: `running`.
   - Turn status `completed`: `ended` with `status: 'completed'`.
   - Any other turn status: `ended` with `status: 'failed'` and the turn's `error` serialized.
@@ -224,15 +226,17 @@ State lives under `${XDG_STATE_HOME:-~/.local/state}/claude-errands/`.
 - `jobs/<jobId>.brief.md`: the brief copy the agent reads.
 - `targets/<CLAUDE_CODE_SESSION_ID>.json`: the target last given with `--target` in that Claude session.
 
-The record is written with delivery state `sending` before the transport's `send` is called, and becomes `sent` when it returns.
+The record is written with delivery state `sending` before the transport's `send` is called, and becomes `sent` when it returns. A job refused before the queue call is settled with delivery state `refused`.
 
-A failed `send` does not prove the daemon rejected the job: the response can be lost after the daemon accepted it. So the record is never deleted on failure. `send` polls once for the job id. If the job is queued or has a turn, delivery state becomes `sent` and `send` succeeds. Otherwise, including when that poll itself fails, it becomes `unknown`, and `send` exits non-zero printing the job id and the error. claude-errands never sends a job twice; `wait <jobId>` on an `unknown` job reports what the daemon shows. Whether Codex deduplicates on `clientUserMessageId` is not assumed.
+A failed `send` does not prove the daemon rejected the job: the response can be lost after the daemon accepted it. So the record is never deleted on failure. `send` polls once for the job id. If the job is in a live thread's queue or has a turn, delivery state becomes `sent` and `send` succeeds. Otherwise, including when the job is parked on a closed thread or that poll itself fails, it becomes `unknown`, and `send` exits non-zero printing the job id and the error. claude-errands never sends a job twice; `wait <jobId>` on an `unknown` job reports what the daemon shows. Whether Codex deduplicates on `clientUserMessageId` is not assumed.
+
+A thread found closed (status `notLoaded`) is a refusal, not an unknown delivery: `thread/queue/add` accepts a job for a closed thread, so the `send` path has to look at the status itself. Found before the job is recorded, nothing is written. Found by the transport's read just before the queue call, the job is settled as `abandoned` with delivery state `refused`, which frees its worktree, and `send` exits non-zero with no job id. `notLoaded` is the only status refused: after its TUI exits, codex-cli 0.167.0 keeps the thread loaded and `idle` for about a minute (measured 2026-11-09 on threads with no turns, three runs, 49 to 63 s, the same after `/quit` and `kill -9`), and a job sent to it in that time runs with no pane to answer an approval. The daemon does not report whether a client has the thread open, and a TUI's command line and working directory do not identify its thread (`codex -C <dir>` keeps the launch folder as its process directory), so `send` does not try to tell. `wait`'s approval stop is what surfaces such a job. The status check and `thread/queue/add` are separate calls, so a thread that closes between them still gets a job id; `wait` reports that job as parked at its first poll.
 
 One job per worktree at a time. `send` refuses when another job record for the same canonical worktree path has no captured outcome, naming that job. Two jobs editing one worktree cannot be told apart by git, so claude-errands does not allow it. `abandon <jobId>` marks a job's outcome as abandoned so the worktree can be used again; it does not stop the agent.
 
 Job ids are `errand-<uuid>`.
 
-`send` without `--target` uses the remembered target. With no remembered target it fails and prints the `targets` listing, so Claude can ask the person which thread to use. With `CLAUDE_CODE_SESSION_ID` unset, `--target` is required every time.
+`send` without `--target` uses the remembered target, which is written only after a thread takes the job, so a target `send` refuses with `--target` is not remembered. A remembered target whose thread later closes stays remembered, and `send` refuses it until `--target` names a live thread. With no remembered target it fails and prints the `targets` listing, so Claude can ask the person which thread to use. With `CLAUDE_CODE_SESSION_ID` unset, `--target` is required every time.
 
 claude-errands cannot tell whether another session owns a thread. Choosing the target explicitly once per Claude session is the guard.
 
@@ -251,7 +255,7 @@ claude-errands cannot tell whether another session owns a thread. Choosing the t
 
 The outcome is stored in the job record the first time it is captured. A later `wait` on the same job prints the stored outcome and gathers nothing again, so edits made after the capture are never attributed to the job. Edits by anyone else between the turn ending and the capture (at most one polling interval) cannot be told apart from the agent's; the README says so.
 
-A `lost` state must be seen on three consecutive polls before `wait` exits non-zero with "job is in neither the queue nor the turns". Waiting forever on a lost job is not acceptable, and neither is giving up on one reading.
+A `lost` state must be seen on three consecutive polls before `wait` exits non-zero with "job is in neither the queue nor the turns". Waiting forever on a lost job is not acceptable, and neither is giving up on one reading. A `closed` state is a definite reading, so `wait` exits non-zero on the first one, naming the thread.
 
 The `RESULT` line must be the last non-empty line of the final answer and match `^RESULT: (done|question|declined)$` exactly. Anything else is `unclassified`; claude-errands does not guess from the prose.
 
@@ -265,9 +269,9 @@ Every outcome also prints:
 
 Globs are matched with Node's `path.matchesGlob` against paths relative to the worktree root.
 
-While waiting, a change to `waitingOnApproval` is printed once as a line so it shows in the background task's output; the wait continues.
+While waiting, a change to `waitingOnApproval` is printed once as a line so it shows in the background task's output; the wait continues. When the turn is still waiting on 5 polls in a row, about two minutes at the default 30-second interval, `wait` exits 3 with a message naming the job and the thread, because a line in a background task's output reaches nobody until the task ends. The job stays open and `wait` can be run again.
 
-`wait` exits 0 whenever it prints an outcome, whichever one. It exits non-zero only when claude-errands itself fails: daemon gone, job record missing, lost job. With `--timeout <minutes>` (default 110, under the two-hour limit of a background Bash task) it prints `still running` and exits 0; Claude runs `wait` again.
+`wait` exits 0 whenever it prints an outcome, whichever one. It exits 3 for the approval stop, and 1 when claude-errands itself fails: daemon gone, job record missing, lost job. With `--timeout <minutes>` (default 110, under the two-hour limit of a background Bash task) it prints `still running` and exits 0; Claude runs `wait` again.
 
 claude-errands reports. It never reverts, resets, or amends the agent's work.
 
@@ -336,6 +340,16 @@ Rerun on codex-cli 0.163.0 on 2026-10-19: all three facts hold, and the e2e harn
 ### Job id visibility
 
 A queued job id appears in `thread/queue/list` as `clientUserMessageId` while an earlier turn runs. It leaves the queue when its own turn starts, and then appears as `clientId` on that turn's `userMessage` item.
+
+### Closed threads (codex-cli 0.167.0, measured 2026-11-09)
+
+Measured against the live daemon with read-only calls, and against an isolated `codex app-server` with no credentials. To repeat it: point `CODEX_HOME` and `HOME` at empty directories, start `codex app-server --listen unix://<socket>`, call `thread/start`, `thread/queue/add`, kill and restart the server, then call `thread/read`, `thread/queue/add` and `thread/resume` on that thread. No model call succeeds without credentials, and none is needed:
+
+- `thread/read` on a thread that is no longer loaded still answers, from the rollout, with `status: {"type":"notLoaded"}`. `thread/loaded/list` does not list it.
+- `thread/queue/add` on a `notLoaded` thread answers with a `queuedSubmission` like any other. The entry stays in `thread/queue/list`, across a daemon restart too, and no turn starts.
+- A loaded thread's queue is drained by the daemon whether or not any client is connected: a job added to an idle thread with no subscriber started a turn within a second.
+- `thread/resume` on a `notLoaded` thread with a queued entry starts it. A parked job is not dead.
+- A turn in progress when the daemon is killed reads as `interrupted` after a restart, not `inProgress`.
 
 ### Reading a thread
 
