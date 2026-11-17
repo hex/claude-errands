@@ -20,7 +20,8 @@ export const runWithTimeout = async (program: string, args: string[], timeoutMs:
 }
 
 export type RawItem = { type: string; clientId?: string | null; text?: string; phase?: string }
-export type RawTurn = { id: string; status: string; error: unknown; items: RawItem[] }
+// rootTurnId: the turn this one continues; a turn that continues none names itself.
+export type RawTurn = { id: string; rootTurnId?: string; status: string; error: unknown; items: RawItem[] }
 export type RawThread = { id: string; name: string | null; cwd: string; preview: string; status: { type: string; activeFlags: string[] }; turns: RawTurn[] }
 // ephemeral: a short-lived helper Codex starts during a turn (it names the thread), not a session a person works in.
 // threadSource: who opened the thread; 'user' for a person's session, 'subagent' for one a Codex session spawned.
@@ -86,7 +87,7 @@ const parseThread = (result: unknown, threadId: string): RawThread => {
       if (!isRecord(turn) || typeof turn.id !== 'string' || typeof turn.status !== 'string' || !Array.isArray(turn.items)) {
         throw new Error(`thread ${threadId} has a malformed turn: ${JSON.stringify(turn).slice(0, 300)}`)
       }
-      return { id: turn.id, status: turn.status, error: turn.error ?? null, items: turn.items.map(item => parseItem(item, threadId)) }
+      return { id: turn.id, ...(typeof turn.rootTurnId === 'string' ? { rootTurnId: turn.rootTurnId } : {}), status: turn.status, error: turn.error ?? null, items: turn.items.map(item => parseItem(item, threadId)) }
     }),
   }
 }

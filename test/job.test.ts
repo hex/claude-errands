@@ -12,7 +12,7 @@ const temp = (): string => realpathSync(mkdtempSync(join(tmpdir(), 'claude-erran
 beforeEach(() => { process.env.XDG_STATE_HOME = temp() })
 
 const job = (overrides: Partial<Job> = {}): Job => ({
-  id: 'relay-1', transport: 'codex', target: 'thread-a', briefPath: '/briefs/a.md', briefCopy: '/state/relay-1.brief.md', workspace: { kind: 'existing' },
+  id: 'relay-1', transport: 'codex', target: 'thread-a', message: 'Read /state/relay-1.brief.md in full.', briefPath: '/briefs/a.md', briefCopy: '/state/relay-1.brief.md', workspace: { kind: 'existing' },
   worktree: '/work/tree', branch: 'main', baseline: { baseCommit: 'abc', dirty: {} }, allowedPaths: ['src/**'],
   sessionId: 'test-session', sentAt: '2026-10-01T00:00:00.000Z', delivery: 'sent', outcome: null, ...overrides,
 })
@@ -213,7 +213,16 @@ test('a create job is recorded with its repository and a clean baseline at the b
   const head = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
   const worktree = join(temp(), 'wt')
   writeFileSync(join(repo, 'dirty.txt'), 'not part of a new worktree\n')
-  assert.deepEqual(recordedWorkspace(resolveWorkspace(create(repo, worktree))), { workspace: { kind: 'create', repo }, worktree, branch: 'job', baseline: { baseCommit: head, dirty: {} } })
+  assert.deepEqual(recordedWorkspace(resolveWorkspace(create(repo, worktree))), { workspace: { kind: 'create', repo }, worktree, branch: 'job', baseline: { baseCommit: head, dirty: {}, branchesAtSend: {} } })
+})
+test('a create job records the branches that are ahead of its base commit, with the commits they point to', () => {
+  const repo = repoOn('main')
+  const base = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  execFileSync('git', ['-C', repo, 'checkout', '-q', '-b', 'ahead'])
+  execFileSync('git', ['-C', repo, '-c', 'user.name=alice', '-c', 'user.email=alice@example.com', 'commit', '-q', '--allow-empty', '-m', 'ahead'])
+  const ahead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  const recorded = recordedWorkspace(resolveWorkspace({ kind: 'create', repo, worktree: join(temp(), 'wt'), branch: 'job', base }))
+  assert.deepEqual(recorded.baseline, { baseCommit: base, dirty: {}, branchesAtSend: { 'refs/heads/ahead': ahead } })
 })
 test('an existing job is recorded with the paths already modified in its worktree', () => {
   const repo = repoOn('main')

@@ -40,7 +40,7 @@ for (const [status, expected] of [
       : { result: { thread: { ...thread, status } } })
     try {
       assert.deepEqual(await listTargets(fake.daemon), [
-        { id: 'session', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', ...expected },
+        { agent: 'codex', id: 'session', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', ...expected },
       ])
     } finally {
       fake.close()
@@ -56,8 +56,8 @@ test('a thread the daemon refuses to read is listed as unreadable beside the rea
   })
   try {
     assert.deepEqual(await listTargets(fake.daemon), [
-      { id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
-      { id: 'ephemeral', readable: false, reason: 'daemon thread/read failed: {"code":-32600,"message":"ephemeral thread cannot be read"}' },
+      { agent: 'codex', id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
+      { agent: 'codex', id: 'ephemeral', readable: false, reason: 'daemon thread/read failed: {"code":-32600,"message":"ephemeral thread cannot be read"}' },
     ])
   } finally {
     fake.close()
@@ -85,7 +85,7 @@ test('a listing reads threads without their turns, so a turn it could not parse 
   })
   try {
     assert.deepEqual(await listTargets(fake.daemon), [
-      { id: 'long', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
+      { agent: 'codex', id: 'long', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
     ])
   } finally {
     fake.close()
@@ -100,8 +100,8 @@ test('an ephemeral helper thread is listed as unreadable even though a read with
   })
   try {
     assert.deepEqual(await listTargets(fake.daemon), [
-      { id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
-      { id: 'title-helper', readable: false, reason: 'ephemeral helper thread' },
+      { agent: 'codex', id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
+      { agent: 'codex', id: 'title-helper', readable: false, reason: 'ephemeral helper thread' },
     ])
   } finally {
     fake.close()
@@ -116,8 +116,8 @@ test('a thread a Codex subagent runs in is listed as unreadable, not as a sessio
   })
   try {
     assert.deepEqual(await listTargets(fake.daemon), [
-      { id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
-      { id: 'subagent', readable: false, reason: 'Codex subagent thread' },
+      { agent: 'codex', id: 'readable', readable: true, name: 'Build the parser', cwd: '/work/app', preview: 'Build the parser\nthen test it', status: 'idle', turnStartedAt: null },
+      { agent: 'codex', id: 'subagent', readable: false, reason: 'Codex subagent thread' },
     ])
   } finally {
     fake.close()

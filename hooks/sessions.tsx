@@ -1,4 +1,4 @@
-// ABOUTME: The footer's Codex line while a Codex session works, as a surface module: it turns the spinner
+// ABOUTME: The footer's agents line while an agent session works, as a surface module: it turns the spinner
 // ABOUTME: and counts the elapsed time on the surface's frame clock between the footer's redraws.
 import type { ClientModule } from 'claude-code'
 

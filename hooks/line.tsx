@@ -1,16 +1,22 @@
-// ABOUTME: Draws the footer's Codex line from its segments, for the footer's own tree and for the surface
-// ABOUTME: module that animates it: each style's Text props, the spinner's frames and the elapsed time.
+// ABOUTME: Draws the footer's agents line from its segments, for the footer's own tree and for the surface
+// ABOUTME: module that animates it: each agent's brand, each style's Text props, the spinner's frames and the elapsed time.
 import type { ElementConstructor, RenderElement, TextProps } from 'claude-code'
 
-import type { LineSegment } from '../types'
+import type { Agent, LineSegment } from '../types'
 
 // OpenAI's brand green, so the Codex parts of the line read as Codex's.
-export const OPENAI_GREEN = '#10A37F'
+const OPENAI_GREEN = '#10A37F'
+// Each agent's name as the line shows it, in the accent of its own interface, so each group reads as that agent's:
+// pi's default dark theme's accent okhsl(295 50% 67%), and omp's default dark theme's accent.
+export const AGENTS: Record<Agent, { name: string; color: string }> = {
+  codex: { name: 'Codex', color: OPENAI_GREEN },
+  pi: { name: 'pi', color: '#A798D7' },
+  omp: { name: 'omp', color: '#FEBC38' },
+}
 export const FRAME_MS = 100
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const STYLES: Record<Extract<LineSegment, { kind: 'text' }>['style'], TextProps> = {
   plain: {},
-  brand: { color: OPENAI_GREEN, bold: true },
   dim: { dimColor: true },
   warning: { color: 'warning' },
 }
@@ -22,6 +28,8 @@ export function drawLine(Text: ElementConstructor<TextProps>, segments: LineSegm
     <Text>
       {segments.map(segment => {
         switch (segment.kind) {
+          case 'agent':
+            return <Text key={segment.key} color={AGENTS[segment.agent].color} bold>{AGENTS[segment.agent].name}</Text>
           case 'text':
             return <Text key={segment.key} {...STYLES[segment.style]}>{segment.text}</Text>
           case 'spinner':

@@ -31,7 +31,7 @@ claude-errands rejects: a missing or empty section (`Rules` may be empty), a fir
 
 ## A new worktree for the job
 
-When the Codex session works in a folder above the repository (a cs session root holding `repo/`), the agent can create the job's worktree itself. Name the worktree to create and its new branch, and add the repository and the base:
+When the session works in a folder above the repository (a cs session root holding `repo/`), the agent can create the job's worktree itself. Name the worktree to create and its new branch, and add the repository and the base:
 
 ```markdown
 ## Worktree
@@ -41,7 +41,7 @@ Repo: <absolute path of the repository's root>
 Base: <commit, branch or tag to start from>
 ```
 
-`Repo:` and `Base:` come together or not at all, and `Repo:` follows the worktree path's rules: absolute, with no `.` or `..` part and no doubled `/`. At send time claude-errands refuses the brief when the repository is not a repository root, the base is not a commit, the branch is invalid or already exists, the worktree path exists or passes through a broken symlink, the worktree path sits in a work tree that does not ignore it (the error names the `.gitignore` line to add), or the Codex thread's folder does not hold the repository, the worktree path and the repository's git directory. claude-errands puts the exact `git worktree add` command in the agent's message; do not write it into the brief. A follow-up brief for that worktree is an ordinary brief without `Repo:` and `Base:`.
+`Repo:` and `Base:` come together or not at all, and `Repo:` follows the worktree path's rules: absolute, with no `.` or `..` part and no doubled `/`. At send time claude-errands refuses the brief when the repository is not a repository root, the base is not a commit, the branch is invalid or already exists, the worktree path exists or passes through a broken symlink, the worktree path sits in a work tree that does not ignore it (the error names the `.gitignore` line to add), or the target session's folder does not hold the repository, the worktree path and the repository's git directory. claude-errands puts the exact `git worktree add` command in the agent's message; do not write it into the brief. A follow-up brief for that worktree is an ordinary brief without `Repo:` and `Base:`.
 
 ## Allowed paths
 

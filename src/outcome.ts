@@ -21,10 +21,16 @@ export const classify = (turn: EndedTurn): OutcomeKind => {
   return declarationOf(turn.finalMessage) ?? 'unclassified'
 }
 
-// A worktree the agent was to create is checked first: without it there is nothing to report changes from.
+// A worktree the agent was to create is checked first: without it there is nothing to report changes from. A failed
+// turn still ends failed, with its error ahead of the failed checks.
 export const captureOutcome = (job: Job, turn: EndedTurn): Outcome => {
   const capturedAt = new Date().toISOString()
+  const runFacts = { ...(turn.userIntervened === true ? { userIntervened: true as const } : {}), ...(turn.resumedAfterRestart === true ? { resumedAfterRestart: true as const } : {}) }
   const problems = createdWorktreeProblems(job)
-  if (problems.length > 0) return { kind: 'no-worktree', finalMessage: turn.finalMessage, error: problems.join('; '), changes: null, capturedAt }
-  return { kind: classify(turn), finalMessage: turn.finalMessage, error: turn.error, changes: reportChanges(job.worktree, job.baseline, job.allowedPaths), capturedAt }
+  if (problems.length > 0) {
+    const kind = turn.status === 'failed' ? 'failed' : 'no-worktree'
+    const error = (turn.status === 'failed' && turn.error !== null ? [turn.error, ...problems] : problems).join('; ')
+    return { kind, finalMessage: turn.finalMessage, error, changes: null, capturedAt, ...runFacts }
+  }
+  return { kind: classify(turn), finalMessage: turn.finalMessage, error: turn.error, changes: reportChanges(job.worktree, job.baseline, job.allowedPaths), capturedAt, ...runFacts }
 }

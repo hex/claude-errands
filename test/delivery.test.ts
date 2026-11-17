@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, type TestContext } from 'node:test'
@@ -164,6 +164,18 @@ for (const type of ['active', 'systemError']) {
   })
 }
 
+test('the job record holds the exact message the thread was sent and only its owner can read it', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  const path = join(codex.state, 'claude-errands', 'jobs', `${id}.json`)
+  assert.equal(statSync(path).mode & 0o777, 0o600)
+  const queued = await codex.daemon.queueList(THREAD) as Array<{ clientUserMessageId: string; input: Array<{ text: string }> }>
+  const record = JSON.parse(readFileSync(path, 'utf8')) as { message: string }
+  assert.equal(record.message, queued[0]?.input[0]?.text)
+  assert.equal(record.message.split('\n')[0], `Read ${join(codex.state, 'claude-errands', 'jobs', `${id}.brief.md`)} in full and do exactly what it says. This is job ${id}.`)
+})
+
 for (const [scenario, state] of [
   ['the daemon rejected the job on a live thread', (worktree: string): FakeState => ({ cwd: worktree, status: { type: 'idle' }, turns: [], queueAddFails: 'rejected' })],
   ['the response was lost and the thread then closed, leaving the job parked', (worktree: string): FakeState => ({
@@ -295,4 +307,147 @@ test('wait keeps waiting through an approval answered within 4 polls and reports
   assert.equal(result.stderr, '')
   assert.equal(result.status, 0)
   assert.equal(result.stdout, `Job ${id} is waiting on an approval in the agent's pane.\nJob: ${id}\nOutcome: done\nFinal answer:\nRESULT: done\nCommits:\n  none\nOutside allow-list:\n  none\nModified before this job:\n  none\nUncommitted changes: no\n`)
+})
+
+// What thread/read showed on codex 0.169.0 after `codex app-server daemon restart` hit a running turn (2026-11-15):
+// the job's turn ends interrupted, and the turn Codex continues the work in names it as rootTurnId and holds no user message.
+const interruptedByRestart = (id: string) =>
+  ({ id: 'turn-1', rootTurnId: 'turn-1', status: 'interrupted', error: null, items: [{ type: 'userMessage', clientId: id }, { type: 'agentMessage', phase: 'commentary', text: 'Reading the brief.' }] })
+const resumed = (status: string, items: { type: string; phase?: string; text?: string }[]) => ({ id: 'turn-2', rootTurnId: 'turn-1', status, error: null, items })
+const RESUMED_DONE = (id: string): string => `Job: ${id}\nOutcome: done\nResumed after a Codex server restart: yes\nFinal answer:\nRESULT: done\nCommits:\n  none\nOutside allow-list:\n  none\nModified before this job:\n  none\nUncommitted changes: no\n`
+
+test('wait reports the end of the turn Codex resumed an interrupted job in, and says it was resumed', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({ cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id), resumed('completed', [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }])] })
+  const result = codex.cli('wait', id, '--interval', '60', '--timeout', '30')
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, RESUMED_DONE(id))
+})
+
+test('wait keeps waiting while the turn Codex resumed an interrupted job in is still running', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({
+    cwd: worktree, status: { type: 'active', activeFlags: [] }, turns: [interruptedByRestart(id), resumed('inProgress', [])],
+    after: { reads: 3, state: { cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id), resumed('completed', [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }])] } },
+  })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, RESUMED_DONE(id))
+})
+
+test('wait does not fail an interrupted job on the poll before Codex has started the turn that resumes it', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({
+    cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id)],
+    after: { reads: 1, state: { cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id), resumed('completed', [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }])] } },
+  })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, RESUMED_DONE(id))
+})
+
+test('wait reports an interrupted job that nothing resumed as failed once it has read interrupted for 5 seconds', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({ cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id)] })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, `Job: ${id}\nOutcome: failed\nError: turn status interrupted: null\nFinal answer: none (the turn had no final answer)\nCommits:\n  none\nOutside allow-list:\n  none\nModified before this job:\n  none\nUncommitted changes: no\n`)
+})
+
+test('wait reports a resumed turn that was itself interrupted as failed, and still says the job was resumed', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({ cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id), resumed('interrupted', [])] })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.status, 0)
+  assert.equal(result.stdout, `Job: ${id}\nOutcome: failed\nError: turn status interrupted: null\nResumed after a Codex server restart: yes\nFinal answer: none (the turn had no final answer)\nCommits:\n  none\nOutside allow-list:\n  none\nModified before this job:\n  none\nUncommitted changes: no\n`)
+})
+
+test('wait follows a job resumed on a later poll, however short the polling interval', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({
+    cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id)],
+    after: { reads: 4, state: { cwd: worktree, status: { type: 'idle' }, turns: [interruptedByRestart(id), resumed('completed', [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }])] } },
+  })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.stdout, RESUMED_DONE(id))
+})
+
+test('wait follows a job through two restarts to the last turn that resumed it', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({ cwd: worktree, status: { type: 'idle' }, turns: [
+    interruptedByRestart(id), resumed('interrupted', []),
+    { id: 'turn-3', rootTurnId: 'turn-1', status: 'completed', error: null, items: [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }] },
+  ] })
+  const result = codex.cli('wait', id, '--interval', '60', '--timeout', '30')
+  assert.equal(result.stderr, '')
+  assert.equal(result.stdout, RESUMED_DONE(id))
+})
+
+test('wait does not follow a turn that names the job\'s turn as its root while the job\'s turn is still running', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  const running = { id: 'turn-1', rootTurnId: 'turn-1', status: 'inProgress', error: null, items: [{ type: 'userMessage', clientId: id }] }
+  codex.write({
+    cwd: worktree, status: { type: 'active', activeFlags: [] }, turns: [running, resumed('completed', [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: declined' }])],
+    after: { reads: 3, state: { cwd: worktree, status: { type: 'idle' }, turns: [{ ...running, status: 'completed', items: [...running.items, { type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }] }] } },
+  })
+  const result = codex.cli('wait', id, '--interval', '0.01', '--timeout', '1')
+  assert.equal(result.stderr, '')
+  assert.equal(result.stdout, `Job: ${id}\nOutcome: done\nFinal answer:\nRESULT: done\nCommits:\n  none\nOutside allow-list:\n  none\nModified before this job:\n  none\nUncommitted changes: no\n`)
+})
+
+test('wait lists files the job\'s branch took in from another branch under their own heading, apart from the allow-list', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const git = (...args: string[]): string => execFileSync('git', ['-C', worktree, '-c', 'user.name=alice', '-c', 'user.email=alice@example.com', ...args], { encoding: 'utf8' })
+  git('checkout', '-q', '-b', 'up')
+  mkdirSync(join(worktree, 'docs'))
+  writeFileSync(join(worktree, 'docs', 'up.md'), 'upstream\n')
+  git('add', '-A')
+  git('commit', '-q', '-m', 'upstream doc')
+  const upstream = git('rev-parse', '--short', 'up').trim()
+  git('checkout', '-q', 'main')
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  git('merge', '-q', '--ff-only', 'up')
+  codex.write({
+    cwd: worktree, status: { type: 'idle' },
+    turns: [{ id: 'turn-1', status: 'completed', error: null, items: [{ type: 'userMessage', clientId: id }, { type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }] }],
+  })
+  const result = codex.cli('wait', id, '--interval', '60', '--timeout', '30')
+  assert.equal(result.stderr, '')
+  assert.equal(result.stdout, `Job: ${id}\nOutcome: done\nFinal answer:\nRESULT: done\nCommits:\n  none\nOutside allow-list:\n  none\nBrought in from up at ${upstream}, not counted against the allow-list:\n  docs/up.md\nModified before this job:\n  none\nUncommitted changes: no\n`)
+})
+
+test('wait follows a job to a turn that resumed the turn that resumed it', async t => {
+  const { worktree, brief } = repoWithBrief(t)
+  const codex = await startDaemon(t, { cwd: worktree, status: { type: 'idle' }, turns: [] })
+  const id = codex.cli('send', brief, '--target', THREAD).stdout.trim()
+  codex.write({ cwd: worktree, status: { type: 'idle' }, turns: [
+    interruptedByRestart(id), resumed('interrupted', []),
+    { id: 'turn-3', rootTurnId: 'turn-2', status: 'completed', error: null, items: [{ type: 'agentMessage', phase: 'final_answer', text: 'RESULT: done' }] },
+  ] })
+  const result = codex.cli('wait', id, '--interval', '60', '--timeout', '30')
+  assert.equal(result.stderr, '')
+  assert.equal(result.stdout, RESUMED_DONE(id))
 })

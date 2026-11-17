@@ -70,10 +70,11 @@ const inRepository = async (isolated: Isolated): Promise<void> => {
   const listed = await until('Codex to title the thread', 60, () => {
     const near = cli(isolated, 'nearby', isolated.repo)
     assert.equal(near.status, 0, near.stderr)
-    const parsed: Array<{ id: string; name: unknown; cwd: string; relativeCwd: string }> = JSON.parse(near.stdout)
-    return parsed.length === 1 && parsed[0]?.name === null ? undefined : parsed
+    const parsed: { sessions: Array<{ agent: string; id: string; name: unknown; cwd: string; relativeCwd: string }>; failed: unknown[] } = JSON.parse(near.stdout)
+    assert.deepEqual(parsed.failed, [])
+    return parsed.sessions.length === 1 && parsed.sessions[0]?.name === null ? undefined : parsed.sessions
   })
-  assert.deepEqual(listed.map(({ id, cwd, relativeCwd }) => ({ id, cwd, relativeCwd })), [{ id: isolated.threadId, cwd: isolated.repo, relativeCwd: '.' }])
+  assert.deepEqual(listed.map(({ agent, id, cwd, relativeCwd }) => ({ agent, id, cwd, relativeCwd })), [{ agent: 'codex', id: isolated.threadId, cwd: isolated.repo, relativeCwd: '.' }])
   assert.equal(typeof listed[0]?.name, 'string')
   const quietNear = cli(isolated, 'nearby', isolated.repo, '--quiet')
   assert.equal(quietNear.status, 0, quietNear.stderr)
@@ -81,7 +82,7 @@ const inRepository = async (isolated: Isolated): Promise<void> => {
   assert.equal(quietNear.stderr, '')
   const notNear = cli(isolated, 'nearby', elsewhere)
   assert.equal(notNear.status, 0, notNear.stderr)
-  assert.equal(notNear.stdout, '[]\n')
+  assert.equal(notNear.stdout, '{"sessions":[],"failed":[]}\n')
   const quietNotNear = cli(isolated, 'nearby', elsewhere, '--quiet')
   assert.equal(quietNotNear.status, 2, quietNotNear.stderr)
   assert.equal(quietNotNear.stdout, '')

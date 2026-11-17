@@ -2,18 +2,21 @@
 // ABOUTME: Also checks a brief's workspace before sending and a created worktree after the turn, and finds a worktree's open job.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
 import type { Workspace } from './brief.ts'
-import { captureBaseline, type Baseline, type ChangeReport } from './changes.ts'
+import { branchesAhead, captureBaseline, type Baseline, type ChangeReport } from './changes.ts'
 import type { OutcomeKind } from './outcome.ts'
 
 // refused: send gave up before thread/queue/add was called, so the thread never had the job.
 export type Delivery = 'sending' | 'sent' | 'unknown' | 'refused'
-export type Outcome = { kind: OutcomeKind | 'abandoned'; finalMessage: string | null; error: string | null; changes: ChangeReport | null; capturedAt: string }
+// userIntervened: present when the person typed into a pi or omp session during the job's run.
+// resumedAfterRestart: present when a Codex daemon restart interrupted the job's turn and Codex continued it in another.
+export type Outcome = { kind: OutcomeKind | 'abandoned'; finalMessage: string | null; error: string | null; changes: ChangeReport | null; capturedAt: string; userIntervened?: true; resumedAfterRestart?: true }
+// message: the exact text the agent is sent. A pi or omp session reads it from this record, never from its socket.
 export type Job = {
-  id: string; transport: 'codex'; target: string; briefPath: string; briefCopy: string
+  id: string; transport: 'codex' | 'pi' | 'omp'; target: string; message: string; briefPath: string; briefCopy: string
   workspace: { kind: 'existing' } | { kind: 'create'; repo: string }; worktree: string; branch: string; baseline: Baseline; allowedPaths: string[]
   sessionId: string | null; sentAt: string; delivery: Delivery; outcome: Outcome | null
 }
@@ -22,8 +25,11 @@ export const stateDir = (): string => join(process.env.XDG_STATE_HOME ?? join(ho
 const jobsDir = (): string => join(stateDir(), 'jobs')
 const targetsDir = (): string => join(stateDir(), 'targets')
 
+// Mode 600: a job record holds the message a pi or omp session runs, so only this user may read or replace it.
+// chmod also covers a .partial a crashed write left behind with another mode.
 const writeAtomically = (path: string, text: string): void => {
-  writeFileSync(`${path}.partial`, text)
+  writeFileSync(`${path}.partial`, text, { mode: 0o600 })
+  chmodSync(`${path}.partial`, 0o600)
   renameSync(`${path}.partial`, path)
 }
 
@@ -176,7 +182,7 @@ export const claimWorktree = (worktree: string, jobId: string): string | undefin
 export const recordedWorkspace = (workspace: ResolvedWorkspace): Pick<Job, 'workspace' | 'worktree' | 'branch' | 'baseline'> => {
   switch (workspace.kind) {
     case 'existing': return { workspace: { kind: 'existing' }, worktree: workspace.worktree, branch: workspace.branch, baseline: captureBaseline(workspace.worktree) }
-    case 'create': return { workspace: { kind: 'create', repo: workspace.repo }, worktree: workspace.worktree, branch: workspace.branch, baseline: { baseCommit: workspace.baseCommit, dirty: {} } }
+    case 'create': return { workspace: { kind: 'create', repo: workspace.repo }, worktree: workspace.worktree, branch: workspace.branch, baseline: { baseCommit: workspace.baseCommit, dirty: {}, branchesAtSend: branchesAhead(workspace.repo, workspace.baseCommit) } }
   }
 }
 
@@ -218,7 +224,7 @@ export const worktreeAddCommand = (fields: { repo: string; branch: string; workt
   `git -C ${shellQuoted(fields.repo)} worktree add -b ${shellQuoted(fields.branch)} ${shellQuoted(fields.worktree)} ${shellQuoted(fields.baseCommit)}`
 
 // The line a job's message starts with, before the agent reads its brief.
-export const firstStep = (job: Job): string | null => {
+export const firstStep = (job: Pick<Job, 'workspace' | 'branch' | 'worktree' | 'baseline'>): string | null => {
   switch (job.workspace.kind) {
     case 'existing': return null
     case 'create': return `First create the job's worktree: ${worktreeAddCommand({ repo: job.workspace.repo, branch: job.branch, worktree: job.worktree, baseCommit: job.baseline.baseCommit })}`

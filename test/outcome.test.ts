@@ -37,7 +37,7 @@ const createJob = (): Job => {
   git(repo, 'init', '-q', '-b', 'main')
   git(repo, 'commit', '-q', '--allow-empty', '-m', 'initial')
   return {
-    id: 'errand-1', transport: 'codex', target: 'thread-a', briefPath: '/briefs/a.md', briefCopy: '/state/errand-1.brief.md',
+    id: 'errand-1', transport: 'codex', target: 'thread-a', message: 'Read /state/errand-1.brief.md in full.', briefPath: '/briefs/a.md', briefCopy: '/state/errand-1.brief.md',
     workspace: { kind: 'create', repo }, worktree: join(temp(), 'wt'), branch: 'job', baseline: { baseCommit: git(repo, 'rev-parse', 'HEAD').trim(), dirty: {} },
     allowedPaths: ['src/**'], sessionId: null, sentAt: '2026-10-19T00:00:00.000Z', delivery: 'sent', outcome: null,
   }
@@ -47,6 +47,16 @@ test('a create job whose worktree was never made ends no-worktree, with no chang
   const job = createJob()
   const { capturedAt: _, ...outcome } = captureOutcome(job, declaredDone)
   assert.deepEqual(outcome, { kind: 'no-worktree', finalMessage: 'Made it.\nRESULT: done', error: `worktree ${job.worktree} does not exist`, changes: null })
+})
+test('a create job whose turn failed without making the worktree ends failed, with the turn error and the missing worktree', () => {
+  const job = createJob()
+  const { capturedAt: _, ...outcome } = captureOutcome(job, { kind: 'ended', status: 'failed', finalMessage: null, error: 'OAuth refresh failed: invalid_grant' })
+  assert.deepEqual(outcome, { kind: 'failed', finalMessage: null, error: `OAuth refresh failed: invalid_grant; worktree ${job.worktree} does not exist`, changes: null })
+})
+test('a create job whose turn failed with no error and no worktree ends failed, with only the worktree check as the error', () => {
+  const job = createJob()
+  const { capturedAt: _, ...outcome } = captureOutcome(job, { kind: 'ended', status: 'failed', finalMessage: 'Stopped.', error: null })
+  assert.deepEqual(outcome, { kind: 'failed', finalMessage: 'Stopped.', error: `worktree ${job.worktree} does not exist`, changes: null })
 })
 test('a create job whose worktree is in place is classified and its changes reported against the base', () => {
   const job = createJob()
